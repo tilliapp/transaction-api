@@ -13,5 +13,5 @@ object Mapper {
     .errorOut(stringBody)
     .name("Authorize transaction")
 
-  val service = endpoint.toRoutes(endpoint)
+  val service = endpoint.toRoutes(endpoints)
 }
