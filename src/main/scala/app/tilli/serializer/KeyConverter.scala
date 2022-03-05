@@ -34,7 +34,7 @@ object KeyConverter {
   def snakeCaseToCamelCase(json: Json): Json =
     KeyConverter.transformKeys(json, KeyConverter.sc2cc).run
 
-  def convert(jsonString: String): Either[ParsingFailure, String] = {
+  def snakeCaseToCamelCase(jsonString: String): Either[ParsingFailure, String] = {
     for {
       json <- parser.parse(jsonString)
       camelCasedJson = KeyConverter.snakeCaseToCamelCase(json)

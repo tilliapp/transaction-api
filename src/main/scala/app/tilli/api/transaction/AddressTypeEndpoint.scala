@@ -1,6 +1,6 @@
 package app.tilli.api.transaction
 
-import app.tilli.codec.TilliClasses.{AddressTypeResponse, EtherScanContract}
+import app.tilli.codec.TilliClasses.{AddressTypeResponse, EtherscanContract}
 import app.tilli.codec._
 import cats.effect.IO
 import org.http4s.{HttpRoutes, Uri}
@@ -48,8 +48,10 @@ object AddressTypeEndpoint extends TilliCodecs with TilliSchema {
     val uri = baseUri.withQueryParams(queryParams)
 
     println(s"$input")
-    httpClient.expectOr[EtherScanContract](uri) { e =>
-      IO(new IllegalStateException("Error"))
+    httpClient.expectOr[EtherscanContract](uri) { err =>
+      import cats.effect.unsafe.implicits.global
+      val errorMessage = new String(err.body.compile.to(Array).unsafeRunSync())
+      IO(println(errorMessage)) *> IO(new IllegalStateException("An error has occurred"))
     }
       .flatTap(d => IO(println(d)))
       .map(c =>

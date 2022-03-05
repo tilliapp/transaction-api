@@ -1,6 +1,6 @@
 package app.tilli.api.transaction
 
-import app.tilli.codec.TilliClasses.{AddressTypeResponse, ErrorResponse, EtherScanContract, MoralisNftTokenUri, MoralisNfts, Nft, NftsResponse}
+import app.tilli.codec.TilliClasses._
 import app.tilli.codec._
 import app.tilli.serializer.KeyConverter
 import cats.implicits._
@@ -10,8 +10,6 @@ import org.http4s.{Header, Headers, HttpRoutes, Request, Uri}
 import org.typelevel.ci.CIString
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir._
-
-import java.util.Base64
 
 object AddressNFTsEndpoint extends TilliCodecs with TilliSchema {
 
@@ -58,7 +56,7 @@ object AddressNFTsEndpoint extends TilliCodecs with TilliSchema {
     }//.flatTap(d => IO(println(d)))
       .attempt
       .map(_
-        .flatMap(s => KeyConverter.convert(s))
+        .flatMap(s => KeyConverter.snakeCaseToCamelCase(s))
         .flatMap(s =>
           for {
             json <- io.circe.parser.parse(s)
