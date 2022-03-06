@@ -1,24 +1,29 @@
 package app.tilli.api.transaction
 
+import app.tilli.api.transaction.AddressNFTsEndpoint.Serializer
 import app.tilli.codec.TilliClasses._
 import app.tilli.codec._
 import app.tilli.serializer.KeyConverter
 import cats.effect.IO
-import cats.implicits._
 import org.http4s.client.Client
 import org.http4s.{HttpRoutes, Uri}
-import sttp.tapir._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
+import sttp.tapir._
+import cats.implicits._
 
-object AdressVolumeEndpoint extends TilliCodecs with TilliSchema {
+object AddressHistoryEndpoint extends TilliCodecs with TilliSchema {
 
   object Serializer extends sttp.tapir.json.circe.TapirJsonCirce
 
-  val endpoint: Endpoint[Unit, (String, Option[String]), ErrorResponse, AddressVolumeResponse, Any] = sttp.tapir.endpoint
+  import TilliCodecs._
+  import TilliSchema._
+  import TilliHttp4sDecoders._
+
+  val endpoint: Endpoint[Unit, (String, Option[String]), ErrorResponse, AddressHistoryResponse, Any] = sttp.tapir.endpoint
     .get
-    .in("address" / path[String] / "volume")
+    .in("address" / path[String] / "history")
     .in(query[Option[String]]("filteredAddress"))
-    .out(Serializer.jsonBody[AddressVolumeResponse])
+    .out(Serializer.jsonBody[AddressHistoryResponse])
     .errorOut(Serializer.jsonBody[ErrorResponse])
     .name("Address History")
 
@@ -28,11 +33,11 @@ object AdressVolumeEndpoint extends TilliCodecs with TilliSchema {
 
   def function(input: (String, Option[String]))(implicit
     httpClient: Client[IO],
-  ): IO[Either[ErrorResponse, AddressVolumeResponse]] = {
+  ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
     "https://api.etherscan.io/api?module=account&action=txlist&address=0xbecB05B9335fC0c53aEaB1C09733cdf9A0CdE85e&startblock=0&endblock=99999999&page=1&offset=10&sort=asc&apikey=2F4I4U42A674STIFNB4M522BRFSP8MHQHA"
 
-    val receivingAddress = input._1.toLowerCase
-    val sendingAddress = input._2.map(_.toLowerCase)
+    val receivingAddress = input._1
+    val sendingAddress = input._2
 
     val host = "https://api.etherscan.io"
     val apiKey = "2F4I4U42A674STIFNB4M522BRFSP8MHQHA"
@@ -78,7 +83,7 @@ object AdressVolumeEndpoint extends TilliCodecs with TilliSchema {
               )
               case None => data
             }
-            AddressVolumeResponse(filteredData, receivingAddress)
+            AddressHistoryResponse(filteredData)
           }
         ))
       .map(_.leftMap(e => ErrorResponse(e.getMessage)))
