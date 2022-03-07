@@ -1,5 +1,6 @@
 package app.tilli.api.transaction
 
+import app.tilli.api.utils.ApiSerdes.Serializer
 import app.tilli.codec.TilliClasses.{AddressTypeResponse, ErrorResponse}
 import app.tilli.codec._
 import cats.effect.IO
@@ -9,8 +10,6 @@ import sttp.tapir._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 object AddressTypeEndpoint extends TilliCodecs with TilliSchema {
-
-  object Serializer extends sttp.tapir.json.circe.TapirJsonCirce
 
   val endpoint: Endpoint[Unit, String, ErrorResponse, AddressTypeResponse, Any] = sttp.tapir.endpoint
     .get

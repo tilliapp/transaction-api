@@ -1,19 +1,15 @@
 package app.tilli.api.transaction
 
+import app.tilli.api.utils.ApiSerdes.Serializer
 import app.tilli.codec.TilliClasses._
 import app.tilli.codec._
-import app.tilli.serializer.KeyConverter
-import cats.implicits._
 import cats.effect.IO
+import org.http4s.HttpRoutes
 import org.http4s.client.Client
-import org.http4s.{Header, Headers, HttpRoutes, Request, Uri}
-import org.typelevel.ci.CIString
-import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir._
+import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 object AddressNFTsEndpoint extends TilliCodecs with TilliSchema {
-
-  object Serializer extends sttp.tapir.json.circe.TapirJsonCirce
 
   val endpoint: Endpoint[Unit, String, ErrorResponse, NftsResponse, Any] = sttp.tapir.endpoint
     .get

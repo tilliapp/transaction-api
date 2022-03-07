@@ -32,6 +32,7 @@ trait TilliCodecs {
   implicit lazy val addressHistoryEntryCodec: Codec[AddressHistoryEntry] = deriveCodec
   implicit lazy val addressHistoryCodec: Codec[AddressHistoryResponse] = deriveCodec
   implicit lazy val addressVolumeResponseCodec: Codec[AddressVolumeResponse] = deriveCodec
+  implicit lazy val addressInformationResponseCodec: Codec[AddressInformationResponse] = deriveCodec
 
 }
 

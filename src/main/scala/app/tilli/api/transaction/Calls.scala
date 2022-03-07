@@ -39,6 +39,7 @@ object Calls {
   def addressHistory(
     receivingAddress: String,
     sendingAddress: Option[String],
+    limit: Int = 10000,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
@@ -49,7 +50,7 @@ object Calls {
     val startBlock = "0"
     val endblock = "99999999"
     val page = "1"
-    val offset = "10000"
+    val offset = s"$limit"
     val sort = "desc"
     val queryParams = Map(
       "module" -> "account",

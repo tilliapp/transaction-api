@@ -54,7 +54,7 @@ object TilliClasses {
     contractType: String,
     name: String,
     symbol: String,
-    tokenUri: String,
+    tokenUri: Option[String],
     //    metadata: Json,
   )
 
@@ -86,7 +86,7 @@ object TilliClasses {
     collectionName: String,
     symbol: String,
     name: Option[String],
-    imageUri: Option[String],
+    imageUrl: Option[String],
     description: Option[String],
   )
 
@@ -108,16 +108,16 @@ object TilliClasses {
         .flatMap(tokenUri => io.circe.parser.parse(tokenUri).flatMap(_.as[MoralisNftTokenUri]))
 
     def apply(moralisNft: MoralisNft): Nft = {
-      val _tokenUri = decodeTokenUri(moralisNft.tokenUri)
-      if (_tokenUri.isLeft) println(s"Error decoding token address ${moralisNft.tokenAddress}: ${_tokenUri}")
-      val tokenUri = _tokenUri.toOption
+      val _tokenUriOpt = moralisNft.tokenUri.map(decodeTokenUri)
+      if (_tokenUriOpt.exists(_.isLeft)) println(s"Error decoding token address ${moralisNft.tokenAddress}: ${_tokenUriOpt.get}")
+      val tokenUri = _tokenUriOpt.flatMap(_.toOption)
       new Nft(
         tokenAddress = moralisNft.tokenAddress,
         contractType = moralisNft.contractType,
         collectionName = moralisNft.name,
         symbol = moralisNft.symbol,
         name = tokenUri.map(_.name),
-        imageUri = tokenUri.map(_.image),
+        imageUrl = tokenUri.map(_.image),
         description = tokenUri.map(_.description)
       )
     }
@@ -182,7 +182,13 @@ object TilliClasses {
         volumeOut = volumeOut.toString,
       )
     }
-
   }
+
+  case class AddressInformationResponse(
+    `type`: AddressTypeResponse,
+    history: AddressHistoryResponse,
+    nfts: NftsResponse,
+    volume: AddressVolumeResponse,
+  )
 
 }
