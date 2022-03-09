@@ -4,6 +4,7 @@ import io.circe.Json
 
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+import scala.util.Try
 
 object TilliClasses {
 
@@ -51,9 +52,9 @@ object TilliClasses {
     tokenAddress: String,
     //    tokenId: String,
     amount: Int,
-    contractType: String,
-    name: String,
-    symbol: String,
+    contractType: Option[String],
+    name: Option[String],
+    symbol: Option[String],
     tokenUri: Option[String],
     //    metadata: Json,
   )
@@ -82,9 +83,9 @@ object TilliClasses {
 
   case class Nft(
     tokenAddress: String,
-    contractType: String,
-    collectionName: String,
-    symbol: String,
+    contractType: Option[String],
+    collectionName: Option[String],
+    symbol: Option[String],
     name: Option[String],
     imageUrl: Option[String],
     description: Option[String],
@@ -99,11 +100,13 @@ object TilliClasses {
       tokenUri.split(",")
         .lastOption
         .toRight(new IllegalStateException("No uri was extracted"))
-        .map { uriBase64 =>
-          val bytes = uriBase64.replaceAll("==", "").getBytes(StandardCharsets.UTF_8)
-          val decoded = Base64.getDecoder.decode(bytes)
-          val string = new String(decoded, StandardCharsets.UTF_8)
-          string
+        .flatMap { uriBase64 =>
+          Try {
+            val bytes = uriBase64.replaceAll("==", "").getBytes(StandardCharsets.UTF_8)
+            val decoded = Base64.getDecoder.decode(bytes)
+            val string = new String(decoded, StandardCharsets.UTF_8)
+            string
+          }.toEither
         }
         .flatMap(tokenUri => io.circe.parser.parse(tokenUri).flatMap(_.as[MoralisNftTokenUri]))
 
