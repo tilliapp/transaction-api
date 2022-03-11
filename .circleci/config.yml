@@ -57,7 +57,7 @@ jobs:
           google-project-id: GOOGLE_PROJECT_ID
           registry-url: "us.gcr.io"
           image: $IMAGE_NAME
-      - cloudrun/deploy:
+      - gcp-cloud-run/deploy:
           platform: "managed"
           image: "us.gcr.io/$GOOGLE_PROJECT_ID/$IMAGE_NAME"
           service-name: "orb-gcp-cloud-run"
