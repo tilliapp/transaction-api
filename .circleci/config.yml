@@ -5,7 +5,7 @@ orbs:
 
 jobs:
   build_test_uberjar:
-    executor: default
+    executor: machine
     docker:
       - image: circleci/openjdk:8-jdk
     working_directory: ~/repo
