@@ -18,13 +18,13 @@ val sharedSettings: Seq[Def.Setting[_]] = Seq(
   ),
   fork := true,
   publishArtifact in Test := true,
-//  test in assembly := {},
-//  assemblyMergeStrategy in assembly := {
-//    case PathList("META-INF", "maven", "org.webjars", "swagger-ui", "pom.properties") => MergeStrategy.singleOrError
-//    case x =>
-//      val oldStrategy = (assemblyMergeStrategy in assembly).value
-//      oldStrategy(x)
-//  }
+  test in assembly := {},
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", "maven", "org.webjars", "swagger-ui", "pom.properties") => MergeStrategy.singleOrError
+    case x =>
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
+  }
 )
 
 lazy val root = (project in file("."))
@@ -34,4 +34,6 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Dependencies.core,
     libraryDependencies ++= Dependencies.testDependencies,
     libraryDependencies ++= Dependencies.apiDependencies,
+    mainClass in assembly := Some("app.tilli.app.ApiApp"),
+    assemblyJarName in assembly := "run.jar"
   )
