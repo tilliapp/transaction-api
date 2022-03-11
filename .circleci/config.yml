@@ -29,6 +29,7 @@ jobs:
       # Build uber jar
       - run: cat /dev/null | sbt assembly
   deploy_cloud_run:
+    executor: machine
 #    docker:
 #      - image: gcr.io/project/transaction-api
 #        auth:
