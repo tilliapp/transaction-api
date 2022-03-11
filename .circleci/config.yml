@@ -1,5 +1,8 @@
 version: 2
 
+orbs:
+  gcp-gcr: circleci/gcp-gcr@0.14.1
+
 jobs:
   build:
     docker:
@@ -37,4 +40,14 @@ jobs:
           key: v1-dependencies--{{ checksum "build.sbt" }}
 
       # run tests!
-      - run: cat /dev/null | sbt test:test
+      # - run: cat /dev/null | sbt test:test
+
+      # Build uber jar
+      - run: cat /dev/null | sbt assembly
+
+  deploy:
+    docker:
+      - image: gcr.io/project/transaction-api
+        auth:
+          username: _json_key  # default username when using a JSON key file to authenticate
+          password: $GCLOUD_SERVICE_KEY  # JSON service account you created, do not encode to base64
