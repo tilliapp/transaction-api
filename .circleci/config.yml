@@ -5,12 +5,13 @@ orbs:
 
 jobs:
   build_test_uberjar:
+    executor: default
     docker:
       - image: circleci/openjdk:8-jdk
     working_directory: ~/repo
-    environment:
-      JVM_OPTS: -Xmx3200m
-      TERM: dumb
+#    environment:
+#      JVM_OPTS: -Xmx3200m
+#      TERM: dumb
     steps:
       - checkout
       - restore_cache:
