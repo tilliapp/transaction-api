@@ -5,37 +5,32 @@ orbs:
   gcp-cloud-run: circleci/gcp-cloud-run@1.0.2
 
 jobs:
-#  build_test_uberjar:
-#    executor: machine
-#    docker:
-#      - image: circleci/openjdk:8-jdk
-#    working_directory: ~/repo
-##    environment:
-##      JVM_OPTS: -Xmx3200m
-##      TERM: dumb
-#    steps:
-#      - checkout
-##      - restore_cache:
-##          keys:
-##            - v1-dependencies-{{ checksum "build.sbt" }}
-##            # fallback to using the latest cache if no exact match is found
-##            - v1-dependencies-
-##      - run: cat /dev/null | sbt test:compile
-##      - save_cache:
-##          paths:
-##            - ~/.m2
-##          key: v1-dependencies--{{ checksum "build.sbt" }}
-#      # run tests!
-#      # - run: cat /dev/null | sbt test:test
-#      # Build uber jar
-#      - run: cat /dev/null | sbt assembly
+  build_test_uberjar:
+    executor: machine
+    docker:
+      - image: circleci/openjdk:8-jdk
+    working_directory: ~/repo
+    #    environment:
+    #      JVM_OPTS: -Xmx3200m
+    #      TERM: dumb
+    steps:
+      - checkout
+  ##      - restore_cache:
+  ##          keys:
+  ##            - v1-dependencies-{{ checksum "build.sbt" }}
+  ##            # fallback to using the latest cache if no exact match is found
+  ##            - v1-dependencies-
+  ##      - run: cat /dev/null | sbt test:compile
+  ##      - save_cache:
+  ##          paths:
+  ##            - ~/.m2
+  ##          key: v1-dependencies--{{ checksum "build.sbt" }}
+  #      # run tests!
+  #      # - run: cat /dev/null | sbt test:test
+  #      # Build uber jar
+  #      - run: cat /dev/null | sbt assembly
   deploy_cloud_run:
     executor: gcp-gcr/default
-#    docker:
-#      - image: gcr.io/project/transaction-api
-#        auth:
-#          username: _json_key  # default username when using a JSON key file to authenticate
-#          password: $GCLOUD_SERVICE_KEY  # JSON service account you created, do not encode to base64
     steps:
       - checkout
       - setup_remote_docker:
@@ -69,7 +64,7 @@ workflows:
   version: 2
   build_test_deploy:
     jobs:
-#      - build_test_uberjar
+      - build_test_uberjar
       - deploy_cloud_run:
-#          requires:
-#            - build_test_uberjar
+          requires:
+            - build_test_uberjar
