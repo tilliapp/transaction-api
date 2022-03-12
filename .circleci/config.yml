@@ -71,5 +71,5 @@ workflows:
     jobs:
 #      - build_test_uberjar
       - deploy_cloud_run:
-          requires:
-            - build_test_uberjar
+#          requires:
+#            - build_test_uberjar
