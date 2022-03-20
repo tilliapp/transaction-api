@@ -42,6 +42,12 @@ object TilliClasses {
     result: List[EtherscanTransaction]
   )
 
+  case class EtherscanBalance(
+    status: String,
+    message: String,
+    result: String,
+  )
+
   case class MoralisNftMetadata(
     name: String,
     description: String,
@@ -71,6 +77,13 @@ object TilliClasses {
     description: String,
     image: String,
   )
+
+  // CoinGecko
+  case class ConversionResult(
+    conversion: String,
+    conversionUnit: String,
+  )
+
 
   // ****** Internal Responses
   case class ErrorResponse(
@@ -186,6 +199,11 @@ object TilliClasses {
       )
     }
   }
+
+  case class AddressBalanceResponse(
+    balanceETH: Option[Double] = None,
+    balanceUSD: Option[Double] = None,
+  )
 
   case class AddressInformationResponse(
     `type`: AddressTypeResponse,

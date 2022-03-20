@@ -18,6 +18,7 @@ trait TilliCodecs {
 
   implicit lazy val etherscanTransactionCodec: Codec[EtherscanTransaction] = deriveCodec
   implicit lazy val etherscanTransactionsCodec: Codec[EtherscanTransactions] = deriveCodec
+  implicit lazy val etherscanBalanceCodec: Codec[EtherscanBalance] = deriveCodec
 
   // Enums
   implicit lazy val addressTypeDecoder = decodeEnumeration(AddressType)
@@ -33,6 +34,7 @@ trait TilliCodecs {
   implicit lazy val addressHistoryCodec: Codec[AddressHistoryResponse] = deriveCodec
   implicit lazy val addressVolumeResponseCodec: Codec[AddressVolumeResponse] = deriveCodec
   implicit lazy val addressInformationResponseCodec: Codec[AddressInformationResponse] = deriveCodec
+  implicit lazy val addressAddressBalanceResponseCodec: Codec[AddressBalanceResponse] = deriveCodec
 
 }
 
