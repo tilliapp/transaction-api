@@ -7,11 +7,10 @@ import app.tilli.codec.TilliCodecs._
 import cats.data.EitherT
 import cats.effect.IO
 import io.circe.Json
-import org.http4s.{Header, Headers}
-import org.http4s.client.Client
-import org.typelevel.ci.CIString
 import io.circe.optics.JsonPath._
-import cats.implicits._
+import org.http4s.client.Client
+import org.http4s.{Header, Headers}
+import org.typelevel.ci.CIString
 
 object Calls {
 
@@ -20,6 +19,14 @@ object Calls {
   val moralisHost = "https://deep-index.moralis.io"
   val moralisApiKey = "gyk7fYMB0EOekZxvsLEDyE0Pm46H6py7iwn0x0fr7ortbcMPmUef0GPnHHtc8upP"
   val coinGeckoHost = "https://api.coingecko.com"
+
+  val big10e18: BigDecimal = BigDecimal("1000000000000000000")
+
+  def toEth(wei: String): Double = (BigDecimal(wei) / big10e18).toDouble
+
+  def toEth(wei: BigInt): Double = (BigDecimal(wei) / big10e18).toDouble
+
+  def toEth(wei: BigDecimal): Double = (wei / big10e18).toDouble
 
   def addressType(
     address: String,
@@ -47,7 +54,7 @@ object Calls {
   def addressHistory(
     receivingAddress: String,
     sendingAddress: Option[String],
-    limit: Int = 10000,
+    limit: Int = 100,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
@@ -112,6 +119,7 @@ object Calls {
   def addressVolume(
     receivingAddress: String,
     sendingAddress: Option[String],
+    limit: Int = 5000,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, AddressVolumeResponse]] = {
@@ -119,7 +127,7 @@ object Calls {
     val startBlock = "0"
     val endblock = "99999999"
     val page = "1"
-    val offset = "10000"
+    val offset = s"$limit"
     val sort = "desc"
     val queryParams = Map(
       "module" -> "account",
@@ -133,26 +141,41 @@ object Calls {
       "apikey" -> etherScanApiKey,
     )
 
-    SimpleHttpClient
-      .call[EtherscanTransactions, AddressVolumeResponse](
-        host = etherScanHost,
-        path = path,
-        queryParams = queryParams,
-        conversion = data => {
-          val filteredData = sendingAddress match {
-            case Some(address) => EtherscanTransactions(
-              status = data.status,
-              message = data.message,
-              result = data.result.filter(r => r.from.toLowerCase == address.toLowerCase || r.to.toLowerCase == address.toLowerCase),
-            )
-            case None => data
+    val volumeCall = EitherT(
+      SimpleHttpClient
+        .call[EtherscanTransactions, AddressVolumeResponse](
+          host = etherScanHost,
+          path = path,
+          queryParams = queryParams,
+          conversion = data => {
+            val filteredData = sendingAddress match {
+              case Some(address) => EtherscanTransactions(
+                status = data.status,
+                message = data.message,
+                result = data.result.filter(r => r.from.toLowerCase == address.toLowerCase || r.to.toLowerCase == address.toLowerCase),
+              )
+              case None => data
+            }
+            AddressVolumeResponse(filteredData, receivingAddress)
           }
-          AddressVolumeResponse(filteredData, receivingAddress)
-        }
-      )
+        ))
+
+    val conversionCall: EitherT[IO, ErrorResponse, ConversionResult] = EitherT(convertCurrency("ethereum", "usd"))
+
+    val chain =
+      for {
+        volume <- volumeCall
+        conversion <- conversionCall
+      } yield
+        volume
+          .copy(volumeInUSD = volume.volumeInWei.map(v => conversion.conversion.toDouble * toEth(v)))
+          .copy(volumeOutUSD = volume.volumeOutWei.map(v => conversion.conversion.toDouble * toEth(v)))
+
+    chain.value
+
   }
 
-  def convert(
+  def convertCurrency(
     from: String,
     to: String,
   )(implicit
@@ -225,18 +248,18 @@ object Calls {
           queryParams = queryParams,
           conversion = c =>
             AddressBalanceResponse(
-              balanceETH = Some((BigDecimal(c.result) / BigDecimal("1000000000000000000")).doubleValue),
+              balanceETH = Some(toEth(BigDecimal(c.result))),
             )
         ))
 
-    val conversionCall: EitherT[IO, ErrorResponse, ConversionResult] = EitherT(convert("ethereum", "usd"))
+    val conversionCall: EitherT[IO, ErrorResponse, ConversionResult] = EitherT(convertCurrency("ethereum", "usd"))
 
     val chain =
       for {
         balance <- balanceCall
         conversion <- conversionCall
       } yield
-        balance.copy(balanceUSD = balance.balanceETH.map(b => conversion.conversion.toDouble*b))
+        balance.copy(balanceUSD = balance.balanceETH.map(b => conversion.conversion.toDouble * b))
 
     chain.value
   }
