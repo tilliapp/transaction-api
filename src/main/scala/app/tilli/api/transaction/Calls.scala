@@ -12,6 +12,8 @@ import org.http4s.client.Client
 import org.http4s.{Header, Headers}
 import org.typelevel.ci.CIString
 
+import java.time.{Instant, ZonedDateTime}
+
 object Calls {
 
   val etherScanHost = "https://api.etherscan.io"
@@ -27,6 +29,10 @@ object Calls {
   def toEth(wei: BigInt): Double = (BigDecimal(wei) / big10e18).toDouble
 
   def toEth(wei: BigDecimal): Double = (wei / big10e18).toDouble
+
+  val moralisApiKeyHeader = Header.Raw(CIString("X-Api-Key"), moralisApiKey)
+
+  val moralisApiKeyHeaderInHeader = Headers(moralisApiKeyHeader)
 
   def addressType(
     address: String,
@@ -51,7 +57,7 @@ object Calls {
       )
   }
 
-  def addressHistory(
+  def addressHistoryEtherscan(
     receivingAddress: String,
     sendingAddress: Option[String],
     limit: Int = 100,
@@ -86,13 +92,67 @@ object Calls {
             case Some(address) => EtherscanTransactions(
               status = data.status,
               message = data.message,
-              result = data.result.filter(r => r.from.toLowerCase == address.toLowerCase || r.to.toLowerCase == address.toLowerCase),
+              result = data
+                .result
+                .filter(r => r.from.toLowerCase == address.toLowerCase || r.to.toLowerCase == address.toLowerCase)
+              ,
             )
             case None => data
           }
           AddressHistoryResponse(filteredData)
         }
       )
+  }
+
+  def addressTokenHistoryEtherscan(
+    address: String,
+    limit: Int = 100,
+    startBlock: String = "0",
+    endBlock: String = "99999999",
+    sort: String = "desc"
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
+    val path = s"api"
+    val page = "1"
+    val queryParams = Map(
+      "module" -> "account",
+      "action" -> "tokentx",
+      "address" -> address,
+      "startblock" -> startBlock,
+      "endblock" -> endBlock,
+      "page" -> page,
+      "offset" -> s"$limit",
+      "sort" -> sort,
+      "apikey" -> etherScanApiKey,
+    )
+    SimpleHttpClient
+      .call[EtherscanTokenTransactions, AddressHistoryResponse](
+        host = etherScanHost,
+        path = path,
+        queryParams = queryParams,
+        conversion = tokenTransactions => AddressHistoryResponse(tokenTransactions)
+      )
+  }
+
+  def combinedAddressHistory(
+    receivingAddress: String,
+    sendingAddress: Option[String],
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
+    val instant = ZonedDateTime.now().minusMonths(3).toInstant
+
+    val chain = for {
+      startBlockNumber <- EitherT(getBlockFromDate(instant.toEpochMilli.toString))
+      etherscanTransactions <- EitherT(addressHistoryEtherscan(receivingAddress, sendingAddress))
+      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(receivingAddress))//, startBlock = startBlockNumber.block.toString))
+    } yield
+      AddressHistoryResponse(
+        entries = (etherscanTransactions.entries ++ etherscanTokenTransactions.entries).sortBy(-_.timestamp.toInt)
+      )
+
+    chain.value
   }
 
   def addressNfts(
@@ -104,7 +164,6 @@ object Calls {
     val queryParams = Map(
       "chain" -> "eth",
     )
-    val headers = Headers(Header.Raw(CIString("X-Api-Key"), moralisApiKey))
 
     SimpleHttpClient
       .call[MoralisNfts, NftsResponse](
@@ -112,7 +171,7 @@ object Calls {
         path = path,
         queryParams = queryParams,
         conversion = data => NftsResponse(nfts = data.result.map(Nft(_)).toList),
-        headers = headers,
+        headers = moralisApiKeyHeaderInHeader,
       )
   }
 
@@ -262,6 +321,27 @@ object Calls {
         balance.copy(balanceUSD = balance.balanceETH.map(b => conversion.conversion.toDouble * b))
 
     chain.value
+  }
+
+  def getBlockFromDate(
+    date: String,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, MoralisDateBlockResponse]] = {
+    val path = s"api/v2/dateToBlock"
+    val queryParams = Map(
+      "chain" -> "eth",
+      "date" -> date,
+    )
+
+    SimpleHttpClient
+      .call[MoralisDateBlockResponse, MoralisDateBlockResponse](
+        host = moralisHost,
+        path = path,
+        queryParams = queryParams,
+        conversion = a => a,
+        headers = moralisApiKeyHeaderInHeader,
+      )
   }
 
 }
