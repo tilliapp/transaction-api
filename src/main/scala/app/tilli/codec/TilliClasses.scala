@@ -1,8 +1,10 @@
 package app.tilli.codec
 
+import app.tilli.api.transaction.Calls.toEth
 import io.circe.Json
 
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import java.util.Base64
 import scala.util.Try
 
@@ -36,10 +38,43 @@ object TilliClasses {
     confirmations: String,
   )
 
+  case class EtherscanTokenTransaction(
+    blockNumber: String,
+    timeStamp: String,
+    hash: String,
+    nonce: String,
+    blockHash: String,
+    transactionIndex: String,
+    from: String,
+    to: String,
+    value: String,
+    gas: String,
+    gasPrice: String,
+    contractAddress: String,
+    cumulativeGasUsed: String,
+    gasUsed: String,
+    confirmations: String,
+    tokenSymbol: String,
+    tokenName: String,
+    tokenDecimal: String,
+  )
+
   case class EtherscanTransactions(
     status: String,
     message: String,
     result: List[EtherscanTransaction]
+  )
+
+  case class EtherscanTokenTransactions(
+    status: String,
+    message: String,
+    result: List[EtherscanTokenTransaction]
+  )
+
+  case class EtherscanBalance(
+    status: String,
+    message: String,
+    result: String,
   )
 
   case class MoralisNftMetadata(
@@ -71,6 +106,19 @@ object TilliClasses {
     description: String,
     image: String,
   )
+
+  case class MoralisDateBlockResponse(
+    date: String,
+    block: Int,
+    timestamp: Int, // Epoch in secs
+  )
+
+  // CoinGecko
+  case class ConversionResult(
+    conversion: String,
+    conversionUnit: String,
+  )
+
 
   // ****** Internal Responses
   case class ErrorResponse(
@@ -138,7 +186,9 @@ object TilliClasses {
     value: String,
     gas: String,
     gasPrice: String,
-    input: String,
+    //    input: String,
+    tokenSymbol: Option[String],
+    tokenName: Option[String],
   )
 
   object AddressHistoryEntry {
@@ -152,8 +202,25 @@ object TilliClasses {
         value = etherscanTransaction.value,
         gas = etherscanTransaction.gas,
         gasPrice = etherscanTransaction.gasPrice,
-        input = etherscanTransaction.input,
+        //        input = etherscanTransaction.input,
+        tokenSymbol = Some("ETH"),
+        tokenName = Some("Ether"),
       )
+
+    def apply(etherscanTransaction: EtherscanTokenTransaction): AddressHistoryEntry =
+      AddressHistoryEntry(
+        transactionHash = etherscanTransaction.hash,
+        timestamp = etherscanTransaction.timeStamp,
+        from = etherscanTransaction.from,
+        to = etherscanTransaction.to,
+        value = etherscanTransaction.value,
+        gas = etherscanTransaction.gas,
+        gasPrice = etherscanTransaction.gasPrice,
+        //        input = etherscanTransaction.input,
+        tokenSymbol = Option(etherscanTransaction.tokenSymbol),
+        tokenName = Option(etherscanTransaction.tokenName),
+      )
+
   }
 
   case class AddressHistoryResponse(
@@ -165,11 +232,20 @@ object TilliClasses {
       AddressHistoryResponse(
         entries = etherscanTransactions.result.map(AddressHistoryEntry(_))
       )
+
+    def apply(etherscanTransactions: EtherscanTokenTransactions): AddressHistoryResponse =
+      AddressHistoryResponse(
+        entries = etherscanTransactions.result.map(AddressHistoryEntry(_))
+      )
   }
 
   case class AddressVolumeResponse(
-    volumeIn: String,
-    volumeOut: String,
+    transactionCountIn: Int,
+    transactionCountOut: Int,
+    volumeInWei: Option[String],
+    volumeOutWei: Option[String],
+    volumeInUSD: Option[Double] = None,
+    volumeOutUSD: Option[Double] = None,
   )
 
   object AddressVolumeResponse {
@@ -177,15 +253,26 @@ object TilliClasses {
 
       def sum(txs: List[EtherscanTransaction]): BigInt = txs.foldLeft(BigInt(0)) { case (a, b) => a + BigInt(b.value) }
 
-      val volumeIn = sum(etherscanTransactions.result.filter(_.to == address))
-      val volumeOut = sum(etherscanTransactions.result.filter(_.from == address))
+      val transactionsIn = etherscanTransactions.result.filter(_.to == address)
+      val transactionsOut = etherscanTransactions.result.filter(_.from == address)
+
+      val volumeIn = sum(transactionsIn).toString
+      val volumeOut = sum(transactionsOut).toString
 
       AddressVolumeResponse(
-        volumeIn = volumeIn.toString,
-        volumeOut = volumeOut.toString,
+        transactionCountIn = transactionsIn.length,
+        transactionCountOut = transactionsOut.length,
+        volumeInWei = Some(volumeIn),
+        volumeOutWei = Some(volumeOut),
       )
     }
   }
+
+  case class AddressBalanceResponse(
+    balanceWei: Option[String] = None,
+    balanceETH: Option[Double] = None,
+    balanceUSD: Option[Double] = None,
+  )
 
   case class AddressInformationResponse(
     `type`: AddressTypeResponse,

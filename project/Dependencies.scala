@@ -23,4 +23,8 @@ object Dependencies {
     "org.http4s" %% "http4s-blaze-server" % "0.23.10",
     "org.http4s" %% "http4s-circe" % "0.23.10",
   )
+
+  val serdesDependencies = Seq(
+    "io.circe" %% "circe-optics" % "0.14.1"
+  )
 }

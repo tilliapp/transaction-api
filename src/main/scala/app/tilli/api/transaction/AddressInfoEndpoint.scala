@@ -34,7 +34,7 @@ object AddressInfoEndpoint extends TilliCodecs with TilliSchema {
 
     val chain = for {
       volume <- EitherT(Calls.addressVolume(receivingAddress, sendingAddress)) // <* Temporal[IO].sleep(2.seconds))
-      history <- EitherT(Calls.addressHistory(receivingAddress, sendingAddress, 10)) // <* Temporal[IO].sleep(2.seconds))
+      history <- EitherT(Calls.addressHistoryEtherscan(receivingAddress, sendingAddress, 10)) // <* Temporal[IO].sleep(2.seconds))
       nfts <- EitherT(Calls.addressNfts(receivingAddress)) // <* Temporal[IO].sleep(2.seconds))
       addressType <- EitherT(Calls.addressType(receivingAddress))
     } yield
