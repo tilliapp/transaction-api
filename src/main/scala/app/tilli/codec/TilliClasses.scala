@@ -1,10 +1,6 @@
 package app.tilli.codec
 
-import app.tilli.api.transaction.Calls.toEth
-import io.circe.Json
-
 import java.nio.charset.StandardCharsets
-import java.time.Instant
 import java.util.Base64
 import scala.util.Try
 
@@ -189,6 +185,8 @@ object TilliClasses {
     //    input: String,
     tokenSymbol: Option[String],
     tokenName: Option[String],
+    tokenDecimal: Option[String],
+    contractAddress: Option[String],
   )
 
   object AddressHistoryEntry {
@@ -205,6 +203,8 @@ object TilliClasses {
         //        input = etherscanTransaction.input,
         tokenSymbol = Some("ETH"),
         tokenName = Some("Ether"),
+        tokenDecimal = Some("18"),
+        contractAddress = Option(etherscanTransaction.contractAddress)
       )
 
     def apply(etherscanTransaction: EtherscanTokenTransaction): AddressHistoryEntry =
@@ -219,6 +219,8 @@ object TilliClasses {
         //        input = etherscanTransaction.input,
         tokenSymbol = Option(etherscanTransaction.tokenSymbol),
         tokenName = Option(etherscanTransaction.tokenName),
+        tokenDecimal = Option(etherscanTransaction.tokenDecimal),
+        contractAddress = Option(etherscanTransaction.contractAddress)
       )
 
   }
@@ -228,6 +230,7 @@ object TilliClasses {
   )
 
   object AddressHistoryResponse {
+
     def apply(etherscanTransactions: EtherscanTransactions): AddressHistoryResponse =
       AddressHistoryResponse(
         entries = etherscanTransactions.result.map(AddressHistoryEntry(_))
@@ -269,8 +272,8 @@ object TilliClasses {
   }
 
   case class AddressBalanceResponse(
-    balanceWei: Option[String] = None,
-    balanceETH: Option[Double] = None,
+    balance: Option[String] = None,
+    symbol: Option[String] = None,
     balanceUSD: Option[Double] = None,
   )
 
@@ -279,6 +282,19 @@ object TilliClasses {
     history: AddressHistoryResponse,
     nfts: NftsResponse,
     volume: AddressVolumeResponse,
+  )
+
+  case class AddressToken(
+    contractAddress: Option[String],
+    value: Option[String],
+    valueUSD: Option[Double],
+    tokenName: Option[String],
+    tokenSymbol: Option[String],
+    tokenDecimal: Option[String],
+  )
+
+  case class AddressTokensResponse(
+    tokens: List[AddressToken],
   )
 
 }
