@@ -5,14 +5,15 @@ import app.tilli.codec.AddressType
 import app.tilli.codec.TilliClasses._
 import app.tilli.codec.TilliCodecs._
 import cats.data.EitherT
-import cats.effect.IO
+import cats.effect.{IO, Temporal}
 import io.circe.Json
 import io.circe.optics.JsonPath._
 import org.http4s.client.Client
 import org.http4s.{Header, Headers}
 import org.typelevel.ci.CIString
 
-import java.time.{Instant, ZonedDateTime}
+import scala.concurrent.duration.DurationInt
+import scala.util.Try
 
 object Calls {
 
@@ -141,12 +142,11 @@ object Calls {
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
-    val instant = ZonedDateTime.now().minusMonths(3).toInstant
-
+    //    val instant = ZonedDateTime.now().minusMonths(3).toInstant
     val chain = for {
-      startBlockNumber <- EitherT(getBlockFromDate(instant.toEpochMilli.toString))
+      //      startBlockNumber <- EitherT(getBlockFromDate(instant.toEpochMilli.toString))
       etherscanTransactions <- EitherT(addressHistoryEtherscan(receivingAddress, sendingAddress))
-      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(receivingAddress))//, startBlock = startBlockNumber.block.toString))
+      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(receivingAddress)) //, startBlock = startBlockNumber.block.toString))
     } yield
       AddressHistoryResponse(
         entries = (etherscanTransactions.entries ++ etherscanTokenTransactions.entries).sortBy(-_.timestamp.toInt)
@@ -257,17 +257,13 @@ object Calls {
           queryParams = queryParams,
           conversion = data => {
             val temp: Either[IllegalStateException, ConversionResult] = {
-              (fromClean, toClean) match {
-                case ("ethereum", "usd") =>
-                  root.ethereum.usd.double
-                    .getOption(data)
-                    .toRight(new IllegalStateException("Could not extract data from ETH to USD conversion"))
-                    .map(res => ConversionResult(
-                      conversion = res.toString,
-                      conversionUnit = "USD",
-                    ))
-                case _ => Left(new IllegalArgumentException(s"Unsupported case: $fromClean => $toClean")).asInstanceOf[Either[IllegalStateException, ConversionResult]]
-              }
+              root.selectDynamic(fromClean).usd.double
+                .getOption(data)
+                .toRight(new IllegalStateException(s"Could not extract data from $fromClean to USD conversion"))
+                .map(res => ConversionResult(
+                  conversion = res.toString,
+                  conversionUnit = "USD",
+                ))
             }
             temp
           }
@@ -307,7 +303,8 @@ object Calls {
           queryParams = queryParams,
           conversion = c =>
             AddressBalanceResponse(
-              balanceETH = Some(toEth(BigDecimal(c.result))),
+              balance = Some(toEth(BigDecimal(c.result)).toString),
+              symbol = Some("ETH"),
             )
         ))
 
@@ -318,7 +315,7 @@ object Calls {
         balance <- balanceCall
         conversion <- conversionCall
       } yield
-        balance.copy(balanceUSD = balance.balanceETH.map(b => conversion.conversion.toDouble * b))
+        balance.copy(balanceUSD = balance.balance.map(b => conversion.conversion.toDouble * b.toDouble))
 
     chain.value
   }
@@ -344,4 +341,97 @@ object Calls {
       )
   }
 
+  def tokenBalance(
+    addressHistoryEntry: AddressHistoryEntry,
+    contractAddress: String,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, AddressBalanceResponse]] = {
+    val path = "api"
+    val queryParams = Map(
+      "module" -> "account",
+      "action" -> "tokenbalance",
+      "contractaddress" -> contractAddress,
+      "address" -> addressHistoryEntry.to,
+      "apikey" -> etherScanApiKey,
+    )
+
+    val balanceCall: EitherT[IO, ErrorResponse, EtherscanBalance] = EitherT(
+      SimpleHttpClient
+        .call[EtherscanBalance, EtherscanBalance](
+          host = etherScanHost,
+          path = path,
+          queryParams = queryParams,
+          conversion = b => b
+        ))
+
+    val conversionCall = addressHistoryEntry
+      .tokenSymbol
+      .map(s => convertCurrency(s, "usd")
+        .flatMap {
+          case Right(value) => IO(Some(value))
+          case Left(_) => IO(None)
+        }
+      ).getOrElse(IO(None))
+
+    val chain =
+      for {
+        balance <- balanceCall
+        conversion <- EitherT(conversionCall.map(Right(_).asInstanceOf[Either[ErrorResponse, Option[ConversionResult]]]))
+      } yield {
+        val balanceUSD =
+          for {
+            balanceResult <- Option(balance.result).filter(s => s != null && s.nonEmpty)
+            balance <- Try(balanceResult.toDouble).toOption
+            conversionFactor <- conversion.flatMap(c => Try(c.conversion.toDouble).toOption)
+            decimals <- addressHistoryEntry.tokenDecimal.flatMap(s => Try(s.toDouble).toOption)
+            power = math.pow(10, decimals)
+          } yield (balance / power) * conversionFactor
+        AddressBalanceResponse(
+          balance = Option(balance.result),
+          symbol = addressHistoryEntry.tokenSymbol,
+          balanceUSD = balanceUSD,
+        )
+      }
+
+    chain.value
+  }
+
+  def addressTokens(
+    address: String,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, AddressTokensResponse]] = {
+    import cats.implicits._
+
+    val chain = for {
+      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(address))
+      groupedTokens = etherscanTokenTransactions
+        .entries
+        .groupBy(_.contractAddress)
+        .filter(t => t._1.nonEmpty && t._2.nonEmpty)
+      calls: List[EitherT[IO, ErrorResponse, AddressToken]] = groupedTokens.map { t =>
+        val contract = t._1.get
+        val tokenTx = t._2.head
+        val temp: EitherT[IO, ErrorResponse, AddressToken] =
+          EitherT(
+            tokenBalance(tokenTx, contract) <* Temporal[IO].sleep(250.milliseconds)
+          ).map(balanceResponse => AddressToken(
+            contractAddress = Option(contract),
+            value = balanceResponse.balance,
+            valueUSD = balanceResponse.balanceUSD,
+            tokenName = tokenTx.tokenName,
+            tokenSymbol = tokenTx.tokenSymbol,
+            tokenDecimal = tokenTx.tokenDecimal,
+          ))
+        temp
+      }.toList
+      result <- calls.sequence
+    } yield {
+      AddressTokensResponse(
+        tokens = result
+      )
+    }
+    chain.value
+  }
 }
