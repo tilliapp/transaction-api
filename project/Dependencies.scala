@@ -6,6 +6,8 @@ object Dependencies {
     "org.typelevel" %% "cats-core" % "2.7.0",
     "org.typelevel" %% "cats-free" % "2.7.0",
     "org.typelevel" %% "cats-effect" % "3.3.5",
+
+    "ch.qos.logback" % "logback-classic" % "1.2.11",
   )
 
   val testDependencies = Seq(

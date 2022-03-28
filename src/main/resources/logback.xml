@@ -1,0 +1,17 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %m{nolookups}%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.http4s.middleware" level="INFO"/>
+    <logger name="org.http4s.blaze" level="INFO"/>
+    <logger name="org.http4s.client" level="INFO"/>
+    <logger name="org.http4s.blaze.channel" level="INFO"/>
+    <logger name="org.http4s.blaze.server" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

@@ -31,7 +31,7 @@ object SimpleHttpClient extends Logging {
 
     call { err =>
       import cats.effect.unsafe.implicits.global
-      val errorMessage = new String(err.body.compile.to(Array).unsafeRunSync())
+      val errorMessage = new String(err.body.compile.to(Array).unsafeRunSync()) + s": ${uri.renderString}"
       IO(log.error(errorMessage)) *> IO(new IllegalStateException("An error has occurred"))
     }
       .attempt
