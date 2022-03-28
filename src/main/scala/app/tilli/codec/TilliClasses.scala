@@ -1,5 +1,7 @@
 package app.tilli.codec
 
+import cats.instances.DoubleInstances
+
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import scala.util.Try
@@ -115,6 +117,61 @@ object TilliClasses {
     conversionUnit: String,
   )
 
+  // Ethplorer
+
+  case class EthplorerPrice(
+    rate: Option[Double],
+    diff: Option[Double],
+    diff7d: Option[Double],
+    ts: Option[Int],
+    marketCapUsd: Option[Double],
+    availableSupply: Option[Double],
+    volume24h: Option[Double],
+    diff30d: Option[Double],
+    volDiff1: Option[Double],
+    volDiff7: Option[Double],
+  )
+
+  case class EthplorerEth(
+    price: EthplorerPrice,
+    balance: Option[Double],
+    rawBalance: Option[String],
+  )
+
+  case class EthlorerTokenInfo(
+    address: Option[String],
+    decimals: Option[String],
+    name: Option[String],
+    owner: Option[String],
+    symbol: Option[String],
+    totalSupply: Option[String],
+    lastUpdated: Option[Int],
+    slot: Option[Int],
+    issuancesCount: Option[Int],
+    holdersCount: Option[Int],
+    website: Option[String],
+    twitter: Option[String],
+    image: Option[String],
+    coingecko: Option[String],
+    ethTransfersCount: Option[Int],
+//    price: EthplorerPrice, // Some times is returned as "false" by ethplorer...
+//    publicTags: List[String],
+  )
+
+  case class EthplorerToken(
+    tokenInfo: EthlorerTokenInfo,
+    balance: Option[Double],
+    totalIn: Option[Double],
+    totalOut: Option[Double],
+    rawBalance: Option[String],
+  )
+
+  case class EthplorerTokens(
+    address: Option[String],
+    ETH: EthplorerEth,
+    countTxs: Option[Int],
+    tokens: List[EthplorerToken],
+  )
 
   // ****** Internal Responses
   case class ErrorResponse(
@@ -286,11 +343,13 @@ object TilliClasses {
 
   case class AddressToken(
     contractAddress: Option[String],
-    value: Option[String],
+    value: Option[Double],
+    rawValue: Option[String],
     valueUSD: Option[Double],
     tokenName: Option[String],
     tokenSymbol: Option[String],
     tokenDecimal: Option[String],
+    imageUrl: Option[String],
   )
 
   case class AddressTokensResponse(

@@ -5,14 +5,13 @@ import app.tilli.codec.AddressType
 import app.tilli.codec.TilliClasses._
 import app.tilli.codec.TilliCodecs._
 import cats.data.EitherT
-import cats.effect.{IO, Temporal}
+import cats.effect.IO
 import io.circe.Json
 import io.circe.optics.JsonPath._
 import org.http4s.client.Client
 import org.http4s.{Header, Headers}
 import org.typelevel.ci.CIString
 
-import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 object Calls {
@@ -23,6 +22,10 @@ object Calls {
   val moralisApiKey = "gyk7fYMB0EOekZxvsLEDyE0Pm46H6py7iwn0x0fr7ortbcMPmUef0GPnHHtc8upP"
   val coinGeckoHost = "https://api.coingecko.com"
 
+  val ethplorerHost = "https://api.ethplorer.io"
+  val ethplorerApiKey = "freekey"
+  val ethplorerImageHost = "https://ethplorer.io"
+
   val big10e18: BigDecimal = BigDecimal("1000000000000000000")
 
   def toEth(wei: String): Double = (BigDecimal(wei) / big10e18).toDouble
@@ -31,9 +34,9 @@ object Calls {
 
   def toEth(wei: BigDecimal): Double = (wei / big10e18).toDouble
 
-  val moralisApiKeyHeader = Header.Raw(CIString("X-Api-Key"), moralisApiKey)
+  val moralisApiKeyHeader: Header.Raw = Header.Raw(CIString("X-Api-Key"), moralisApiKey)
 
-  val moralisApiKeyHeaderInHeader = Headers(moralisApiKeyHeader)
+  val moralisApiKeyHeaderInHeader: Headers = Headers(moralisApiKeyHeader)
 
   def addressType(
     address: String,
@@ -153,6 +156,24 @@ object Calls {
       )
 
     chain.value
+  }
+
+  def addressTokensEthplorer(
+    address: String,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, EthplorerTokens]] = {
+    val path = s"getAddressInfo/$address"
+    val queryParams = Map(
+      "apiKey" -> ethplorerApiKey,
+    )
+    SimpleHttpClient
+      .call[EthplorerTokens, EthplorerTokens](
+        host = ethplorerHost,
+        path = path,
+        queryParams = queryParams,
+        conversion = t => t
+      )
   }
 
   def addressNfts(
@@ -397,41 +418,93 @@ object Calls {
     chain.value
   }
 
+  def toNativeValue(
+    ethplorerToken: EthplorerToken,
+  ): Option[Double] = {
+    for {
+      balanceResult <- ethplorerToken.rawBalance.filter(s => s != null && s.nonEmpty)
+      balance <- Try(balanceResult.toDouble).toOption
+      decimals <- ethplorerToken.tokenInfo.decimals.flatMap(s => Try(s.toDouble).toOption)
+      power = math.pow(10, decimals)
+    } yield (balance / power)
+  }
+
+  def toNativeValueConverted(
+    balance: Double,
+    conversionResult: ConversionResult,
+  ): Option[Double] =
+    Try(conversionResult.conversion.toDouble)
+      .toOption
+      .map(_ * balance)
+
+  //  def addressTokensOld(
+  //    address: String,
+  //  )(implicit
+  //    client: Client[IO],
+  //  ): IO[Either[ErrorResponse, AddressTokensResponse]] = {
+  //    import cats.implicits._
+  //
+  //    val chain = for {
+  //      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(address, limit = 5000))
+  //      groupedTokens = etherscanTokenTransactions
+  //        .entries
+  //        .groupBy(_.contractAddress)
+  //        .filter(t => t._1.nonEmpty && t._2.nonEmpty)
+  //      calls: List[EitherT[IO, ErrorResponse, AddressToken]] = groupedTokens.map { t =>
+  //        val contract = t._1.get
+  //        val tokenTx = t._2.head
+  //        val temp: EitherT[IO, ErrorResponse, AddressToken] =
+  //        //          EitherT(
+  //        //            tokenBalance(tokenTx, contract) <* Temporal[IO].sleep(250.milliseconds)
+  //        //          )
+  //          EitherT(IO(
+  //            Right(AddressBalanceResponse()).asInstanceOf[Either[ErrorResponse, AddressBalanceResponse]]
+  //          ))
+  //            .map(balanceResponse => AddressToken(
+  //              contractAddress = Option(contract),
+  //              rawValue = balanceResponse.balance,
+  //              valueUSD = balanceResponse.balanceUSD,
+  //              tokenName = tokenTx.tokenName,
+  //              tokenSymbol = tokenTx.tokenSymbol,
+  //              tokenDecimal = tokenTx.tokenDecimal,
+  //              imageUrl = None,
+  //            ))
+  //        temp
+  //      }.toList
+  //      result <- calls.sequence
+  //    } yield {
+  //      AddressTokensResponse(
+  //        tokens = result
+  //      )
+  //    }
+  //    chain.value
+  //  }
+
   def addressTokens(
     address: String,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, AddressTokensResponse]] = {
-    import cats.implicits._
 
     val chain = for {
-      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(address))
-      groupedTokens = etherscanTokenTransactions
-        .entries
-        .groupBy(_.contractAddress)
-        .filter(t => t._1.nonEmpty && t._2.nonEmpty)
-      calls: List[EitherT[IO, ErrorResponse, AddressToken]] = groupedTokens.map { t =>
-        val contract = t._1.get
-        val tokenTx = t._2.head
-        val temp: EitherT[IO, ErrorResponse, AddressToken] =
-          EitherT(
-            tokenBalance(tokenTx, contract) <* Temporal[IO].sleep(250.milliseconds)
-          ).map(balanceResponse => AddressToken(
-            contractAddress = Option(contract),
-            value = balanceResponse.balance,
-            valueUSD = balanceResponse.balanceUSD,
-            tokenName = tokenTx.tokenName,
-            tokenSymbol = tokenTx.tokenSymbol,
-            tokenDecimal = tokenTx.tokenDecimal,
-          ))
-        temp
-      }.toList
-      result <- calls.sequence
-    } yield {
-      AddressTokensResponse(
-        tokens = result
+      tokens <- EitherT(addressTokensEthplorer(address))
+        .map(ethplorerTokens => ethplorerTokens
+          .tokens
+          .map { token =>
+            AddressToken(
+              contractAddress = token.tokenInfo.address,
+              value = toNativeValue(token),
+              rawValue = token.rawBalance,
+              valueUSD = None,
+              tokenName = token.tokenInfo.name,
+              tokenSymbol = token.tokenInfo.symbol,
+              tokenDecimal = token.tokenInfo.decimals,
+              imageUrl = token.tokenInfo.image.map(i => s"$ethplorerImageHost$i"),
+          )}
       )
-    }
+    } yield AddressTokensResponse(tokens)
+
     chain.value
   }
+
 }
