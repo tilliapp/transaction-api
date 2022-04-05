@@ -29,6 +29,8 @@ trait TilliSchema {
   implicit lazy val addressAddressBalanceResponseSchema: Schema[AddressBalanceResponse] = Schema.derived
   implicit lazy val addressTokenSchema: Schema[AddressToken] = Schema.derived
   implicit lazy val addressTokensResponseSchema: Schema[AddressTokensResponse] = Schema.derived
+  implicit lazy val listEntrySchema: Schema[ListEntry] = Schema.derived
+  implicit lazy val listResponseSchema: Schema[ListResponse] = Schema.derived
 
 }
 

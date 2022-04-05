@@ -170,7 +170,7 @@ object TilliClasses {
     address: Option[String],
     ETH: EthplorerEth,
     countTxs: Option[Int],
-    tokens: List[EthplorerToken],
+    tokens: Option[List[EthplorerToken]],
   )
 
   // ****** Internal Responses
@@ -353,7 +353,20 @@ object TilliClasses {
   )
 
   case class AddressTokensResponse(
-    tokens: List[AddressToken],
+    tokens: Option[List[AddressToken]],
+  )
+
+  case class ListEntry(
+    address: String,
+    name: Option[String],
+    description: Option[String],
+    url: Option[String],
+    date: Option[String],
+    labels: Option[List[String]],
+  )
+
+  case class ListResponse(
+    data: List[ListEntry],
   )
 
 }

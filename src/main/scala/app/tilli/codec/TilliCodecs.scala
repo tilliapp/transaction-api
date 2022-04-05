@@ -38,6 +38,7 @@ trait TilliCodecs {
   implicit lazy val AddressTypeResponseCodec: Codec[AddressTypeResponse] = deriveCodec
   implicit lazy val nftCodec: Codec[Nft] = deriveCodec
   implicit lazy val nftsResponseCodec: Codec[NftsResponse] = deriveCodec
+  implicit lazy val listResponseCodec: Codec[ListResponse] = deriveCodec
 
   implicit lazy val addressHistoryEntryCodec: Codec[AddressHistoryEntry] = deriveCodec
   implicit lazy val addressHistoryCodec: Codec[AddressHistoryResponse] = deriveCodec
@@ -46,6 +47,7 @@ trait TilliCodecs {
   implicit lazy val addressAddressBalanceResponseCodec: Codec[AddressBalanceResponse] = deriveCodec
   implicit lazy val addressTokenCodec: Codec[AddressToken] = deriveCodec
   implicit lazy val addressTokensResponseCodec: Codec[AddressTokensResponse] = deriveCodec
+  implicit lazy val listEntryCodec: Codec[ListEntry] = deriveCodec
 
 }
 

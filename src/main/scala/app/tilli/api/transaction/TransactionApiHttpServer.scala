@@ -24,6 +24,7 @@ object TransactionApiHttpServer {
       AddressInfoEndpoint.endpoint,
       AddressBalanceEndpoint.endpoint,
       AddressTokensEndpoint.endpoint,
+      ListEndpoint.endpoint,
     )
 
     val swaggerRoute = new SwaggerHttp4s(
@@ -41,6 +42,7 @@ object TransactionApiHttpServer {
       AddressInfoEndpoint.service,
       AddressBalanceEndpoint.service,
       AddressTokensEndpoint.service,
+      ListEndpoint.service,
       swaggerRoute,
     ).reduce((a, b) => a <+> b)
     val router = Router("/va1/" -> routes).orNotFound
