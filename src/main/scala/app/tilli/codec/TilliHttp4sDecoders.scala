@@ -9,6 +9,5 @@ object TilliHttp4sDecoders {
   import TilliCodecs._
 
   implicit lazy val etherScanContractHttp4sDecoder = jsonOf[IO, EtherscanContract]
-//  implicit lazy val moralisNftsHttp4sDecoder = jsonOf[IO, MoralisNfts]
 
 }

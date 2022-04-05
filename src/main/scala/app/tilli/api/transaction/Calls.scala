@@ -1,5 +1,6 @@
 package app.tilli.api.transaction
 
+import app.tilli.api.list.TilliList
 import app.tilli.api.utils.SimpleHttpClient
 import app.tilli.codec.AddressType
 import app.tilli.codec.TilliClasses._
@@ -426,7 +427,7 @@ object Calls {
       balance <- Try(balanceResult.toDouble).toOption
       decimals <- ethplorerToken.tokenInfo.decimals.flatMap(s => Try(s.toDouble).toOption)
       power = math.pow(10, decimals)
-    } yield (balance / power)
+    } yield balance / power
   }
 
   def toNativeValueConverted(
@@ -436,49 +437,6 @@ object Calls {
     Try(conversionResult.conversion.toDouble)
       .toOption
       .map(_ * balance)
-
-  //  def addressTokensOld(
-  //    address: String,
-  //  )(implicit
-  //    client: Client[IO],
-  //  ): IO[Either[ErrorResponse, AddressTokensResponse]] = {
-  //    import cats.implicits._
-  //
-  //    val chain = for {
-  //      etherscanTokenTransactions <- EitherT(addressTokenHistoryEtherscan(address, limit = 5000))
-  //      groupedTokens = etherscanTokenTransactions
-  //        .entries
-  //        .groupBy(_.contractAddress)
-  //        .filter(t => t._1.nonEmpty && t._2.nonEmpty)
-  //      calls: List[EitherT[IO, ErrorResponse, AddressToken]] = groupedTokens.map { t =>
-  //        val contract = t._1.get
-  //        val tokenTx = t._2.head
-  //        val temp: EitherT[IO, ErrorResponse, AddressToken] =
-  //        //          EitherT(
-  //        //            tokenBalance(tokenTx, contract) <* Temporal[IO].sleep(250.milliseconds)
-  //        //          )
-  //          EitherT(IO(
-  //            Right(AddressBalanceResponse()).asInstanceOf[Either[ErrorResponse, AddressBalanceResponse]]
-  //          ))
-  //            .map(balanceResponse => AddressToken(
-  //              contractAddress = Option(contract),
-  //              rawValue = balanceResponse.balance,
-  //              valueUSD = balanceResponse.balanceUSD,
-  //              tokenName = tokenTx.tokenName,
-  //              tokenSymbol = tokenTx.tokenSymbol,
-  //              tokenDecimal = tokenTx.tokenDecimal,
-  //              imageUrl = None,
-  //            ))
-  //        temp
-  //      }.toList
-  //      result <- calls.sequence
-  //    } yield {
-  //      AddressTokensResponse(
-  //        tokens = result
-  //      )
-  //    }
-  //    chain.value
-  //  }
 
   def addressTokens(
     address: String,
@@ -490,7 +448,7 @@ object Calls {
       tokens <- EitherT(addressTokensEthplorer(address))
         .map(ethplorerTokens => ethplorerTokens
           .tokens
-          .map { token =>
+          .map(_.map { token =>
             AddressToken(
               contractAddress = token.tokenInfo.address,
               value = toNativeValue(token),
@@ -500,11 +458,20 @@ object Calls {
               tokenSymbol = token.tokenInfo.symbol,
               tokenDecimal = token.tokenInfo.decimals,
               imageUrl = token.tokenInfo.image.map(i => s"$ethplorerImageHost$i"),
-          )}
-      )
+            )
+          })
+        )
     } yield AddressTokensResponse(tokens)
 
     chain.value
+  }
+
+  def lists(listRequest: String): IO[Either[ErrorResponse, ListResponse]] = {
+    val data = listRequest match {
+      case "tilli" => TilliList.tilliList.map(l => ListResponse(l)).leftMap(e => ErrorResponse("An error occurred while loading a list"))
+      case _ => EitherT(IO(Left(ErrorResponse(s"Unknown list $listRequest")).asInstanceOf[Either[ErrorResponse, ListResponse]]))
+    }
+    data.value
   }
 
 }
