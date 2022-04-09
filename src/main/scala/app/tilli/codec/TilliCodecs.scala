@@ -33,13 +33,15 @@ trait TilliCodecs {
   implicit lazy val addressTypeDecoder = decodeEnumeration(AddressType)
   implicit lazy val addressTypeEncoder = encodeEnumeration(AddressType)
 
-  // Classes
+  // Responses
   implicit lazy val errorResponseCodec: Codec[ErrorResponse] = deriveCodec
   implicit lazy val AddressTypeResponseCodec: Codec[AddressTypeResponse] = deriveCodec
   implicit lazy val nftCodec: Codec[Nft] = deriveCodec
   implicit lazy val nftsResponseCodec: Codec[NftsResponse] = deriveCodec
   implicit lazy val listResponseCodec: Codec[ListResponse] = deriveCodec
+  implicit lazy val ensResolutionResponseCodec: Codec[EnsResolutionResponse] = deriveCodec
 
+  // Classes
   implicit lazy val addressHistoryEntryCodec: Codec[AddressHistoryEntry] = deriveCodec
   implicit lazy val addressHistoryCodec: Codec[AddressHistoryResponse] = deriveCodec
   implicit lazy val addressVolumeResponseCodec: Codec[AddressVolumeResponse] = deriveCodec
