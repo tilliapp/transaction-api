@@ -8,7 +8,7 @@ class TilliListSpec extends BaseSpec {
     "load" in {
       val Right(blockList) = TilliList.loadTilliBlockList
       blockList.size must be > 100
-      println(blockList)
+//      println(blockList)
     }
   }
 
