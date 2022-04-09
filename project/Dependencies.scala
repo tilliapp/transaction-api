@@ -29,4 +29,8 @@ object Dependencies {
   val serdesDependencies = Seq(
     "io.circe" %% "circe-optics" % "0.14.1"
   )
+
+  val web3Dependencies = Seq(
+    "org.web3j" % "core" % "4.9.1"
+  )
 }

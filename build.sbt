@@ -35,6 +35,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Dependencies.testDependencies,
     libraryDependencies ++= Dependencies.apiDependencies,
     libraryDependencies ++= Dependencies.serdesDependencies,
+    libraryDependencies ++= Dependencies.web3Dependencies,
     mainClass in assembly := Some("app.tilli.app.ApiApp"),
     assemblyJarName in assembly := "run.jar"
   )

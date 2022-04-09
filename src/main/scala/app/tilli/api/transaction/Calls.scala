@@ -12,6 +12,9 @@ import io.circe.optics.JsonPath._
 import org.http4s.client.Client
 import org.http4s.{Header, Headers}
 import org.typelevel.ci.CIString
+import org.web3j.ens.EnsResolver
+import org.web3j.protocol.Web3j
+import org.web3j.protocol.http.HttpService
 
 import scala.util.Try
 
@@ -26,6 +29,12 @@ object Calls {
   val ethplorerHost = "https://api.ethplorer.io"
   val ethplorerApiKey = "freekey"
   val ethplorerImageHost = "https://ethplorer.io"
+
+  val web3ConnectionString = "https://speedy-nodes-nyc.moralis.io/78759d66ae649f7b3ea47aaa/eth/mainnet"
+  private lazy val web3Connection = new HttpService(web3ConnectionString)
+  private lazy val web3j = Web3j.build(web3Connection)
+  private lazy val ensResolver = new EnsResolver(web3j)
+
 
   val big10e18: BigDecimal = BigDecimal("1000000000000000000")
 
@@ -468,10 +477,38 @@ object Calls {
 
   def lists(listRequest: String): IO[Either[ErrorResponse, ListResponse]] = {
     val data = listRequest match {
-      case "tilli" => TilliList.tilliList.map(l => ListResponse(l)).leftMap(e => ErrorResponse("An error occurred while loading a list"))
+      case "tilli" => TilliList.tilliList.map(l => ListResponse(l)).leftMap(_ => ErrorResponse("An error occurred while loading a list"))
       case _ => EitherT(IO(Left(ErrorResponse(s"Unknown list $listRequest")).asInstanceOf[Either[ErrorResponse, ListResponse]]))
     }
     data.value
+  }
+
+
+  def ensResolution(address: String): IO[Either[ErrorResponse, EnsResolutionResponse]] = {
+
+    def call(address: String, f: String => String): Either[Throwable, Option[String]] =
+      Try(f(address))
+        .toEither
+        .map(Option(_).filter(s => s != null || s.nonEmpty))
+
+    def cleanAddress(address: String) : Either[Throwable, String] = {
+      Option(address).filter(s => s != null && s.nonEmpty) // TODO: Add check that the address is valid
+        .toRight(new IllegalArgumentException("Invalid address input"))
+    }
+
+    val chain = for {
+      cleanedAddress <- EitherT(IO(cleanAddress(address)))
+      resolved <- EitherT(IO(Right(call(cleanedAddress, ensResolver.resolve).toOption.flatten).asInstanceOf[Either[Throwable, Option[String]]]))
+      reverseResolved <- EitherT(IO(Right(call(cleanedAddress, ensResolver.reverseResolve).toOption.flatten).asInstanceOf[Either[Throwable, Option[String]]]))
+    } yield EnsResolutionResponse(
+      address = resolved,
+      reverseAddress = reverseResolved,
+    )
+
+    chain
+      .leftMap(e => ErrorResponse(s"An error occurred during ENS resolution: ${e.getMessage}"))
+      .value
+
   }
 
 }

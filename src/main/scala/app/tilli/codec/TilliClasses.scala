@@ -369,4 +369,9 @@ object TilliClasses {
     data: List[ListEntry],
   )
 
+  case class EnsResolutionResponse(
+    address: Option[String],
+    reverseAddress: Option[String],
+  )
+
 }
