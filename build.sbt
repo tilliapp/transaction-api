@@ -21,9 +21,8 @@ val sharedSettings: Seq[Def.Setting[_]] = Seq(
   test in assembly := {},
   assemblyMergeStrategy in assembly := {
     case PathList("META-INF", "maven", "org.webjars", "swagger-ui", "pom.properties") => MergeStrategy.singleOrError
-    case x =>
-      val oldStrategy = (assemblyMergeStrategy in assembly).value
-      oldStrategy(x)
+    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+    case x => MergeStrategy.first
   }
 )
 
