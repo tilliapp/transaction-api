@@ -522,6 +522,20 @@ object Calls {
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, TwitterResponses]] = {
+
+    def toTwitterResponse(responsesRaw: List[TwitterResponseRaw]): List[TwitterResponse] =
+      responsesRaw.map(tr =>
+        TwitterResponse(
+          name = tr.name,
+          handle = tr.screenName,
+          description = tr.description,
+          url = tr.screenName.map(s => s"https://twitter.com/$s"),
+          imageUrl = tr.profileImageUrlHttps,
+          followersCount = tr.followersCount,
+          friendsCount = tr.friendsCount,
+        )
+      ).sortBy(_.followersCount).reverse
+
     val path = s"1.1/users/search.json"
     val queryParams = Map(
       "q" -> ens,
@@ -531,20 +545,13 @@ object Calls {
         host = twitterHost,
         path = path,
         queryParams = queryParams,
-        conversion = trs =>
-          TwitterResponses(
-            trs.map(tr =>
-              TwitterResponse(
-                name = tr.name,
-                handle = tr.screenName,
-                description = tr.description,
-                url = tr.screenName.map(s => s"https://twitter.com/$s"),
-                imageUrl = tr.profileImageUrlHttps,
-                followersCount = tr.followersCount,
-                friendsCount = tr.friendsCount,
-              )
-            ).sortBy(_.followersCount).reverse
-          ),
+        conversion = trs => {
+          val trimmedEns = ens.toLowerCase.trim
+          val exactMatch = trs.filter(_.name.exists(_.toLowerCase.trim == trimmedEns))
+          val responses = if (exactMatch.nonEmpty) toTwitterResponse(exactMatch)
+          else toTwitterResponse(trs)
+          TwitterResponses(responses)
+        },
         headers = twitterHeaders,
       )
   }
