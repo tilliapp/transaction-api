@@ -50,7 +50,10 @@ trait TilliCodecs {
   implicit lazy val addressTokenCodec: Codec[AddressToken] = deriveCodec
   implicit lazy val addressTokensResponseCodec: Codec[AddressTokensResponse] = deriveCodec
   implicit lazy val listEntryCodec: Codec[ListEntry] = deriveCodec
-
+  implicit lazy val twitterResponsesCodec: Codec[TwitterResponses] = deriveCodec
+  implicit lazy val twitterResponseCodec: Codec[TwitterResponse] = deriveCodec
+  implicit lazy val twitterResponsesRawCodec: Codec[TwitterResponsesRaw] = deriveCodec
+  implicit lazy val twitterResponseRawCodec: Codec[TwitterResponseRaw] = deriveCodec
 }
 
 object TilliCodecs extends TilliCodecs
