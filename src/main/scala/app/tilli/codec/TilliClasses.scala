@@ -374,4 +374,31 @@ object TilliClasses {
     reverseAddress: Option[String],
   )
 
+  case class TwitterResponsesRaw(
+    profiles: List[TwitterResponseRaw],
+  )
+
+  case class TwitterResponseRaw(
+    name: Option[String],
+    screenName: Option[String],
+    description: Option[String],
+    followersCount: Option[Int],
+    friendsCount: Option[Int],
+    profileImageUrlHttps: Option[String],
+  )
+
+  case class TwitterResponses(
+    profiles: List[TwitterResponse],
+  )
+
+  case class TwitterResponse(
+    name: Option[String],
+    handle: Option[String],
+    description: Option[String],
+    url: Option[String],
+    imageUrl: Option[String],
+    followersCount: Option[Int],
+    friendsCount: Option[Int],
+  )
+
 }

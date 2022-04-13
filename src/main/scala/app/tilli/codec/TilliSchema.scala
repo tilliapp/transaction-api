@@ -5,8 +5,6 @@ import sttp.tapir.{Schema, Validator}
 
 trait TilliSchema {
 
-  import io.circe.generic.auto._
-
   // Enums
   implicit val addressTypeSchema = Schema.string.validate(Validator.enumeration(AddressType.values.toList))
 
@@ -32,6 +30,8 @@ trait TilliSchema {
   implicit lazy val listEntrySchema: Schema[ListEntry] = Schema.derived
   implicit lazy val listResponseSchema: Schema[ListResponse] = Schema.derived
   implicit lazy val ensResolutionResponseSchema: Schema[EnsResolutionResponse] = Schema.derived
+  implicit lazy val twitterResponseSchema: Schema[TwitterResponse] = Schema.derived
+  implicit lazy val twitterResponsesSchema: Schema[TwitterResponses] = Schema.derived
 
 }
 

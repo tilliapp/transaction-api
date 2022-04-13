@@ -22,9 +22,18 @@ object Calls {
 
   val etherScanHost = "https://api.etherscan.io"
   val etherScanApiKey = "2F4I4U42A674STIFNB4M522BRFSP8MHQHA"
+
   val moralisHost = "https://deep-index.moralis.io"
   val moralisApiKey = "gyk7fYMB0EOekZxvsLEDyE0Pm46H6py7iwn0x0fr7ortbcMPmUef0GPnHHtc8upP"
+  val moralisApiKeyHeader: Header.Raw = Header.Raw(CIString("X-Api-Key"), moralisApiKey)
+  val moralisApiKeyHeaderInHeader: Headers = Headers(moralisApiKeyHeader)
+
   val coinGeckoHost = "https://api.coingecko.com"
+
+  val twitterHost = "https://api.twitter.com"
+  val twitterBearerToken = "AAAAAAAAAAAAAAAAAAAAAOZNbQEAAAAAO%2BpmzNe9IamSzFMw32M%2F2y3sxUs%3DOtye0A4uJtk1BHs63mcs0qTAilhnZ6MnPFvx7aa16PazaR0PQN"
+  val twitterHeaderBearerTokenHeader: Header.Raw = Header.Raw(CIString("Authorization"), s"Bearer $twitterBearerToken")
+  val twitterHeaders = Headers(twitterHeaderBearerTokenHeader)
 
   val ethplorerHost = "https://api.ethplorer.io"
   val ethplorerApiKey = "freekey"
@@ -44,9 +53,6 @@ object Calls {
 
   def toEth(wei: BigDecimal): Double = (wei / big10e18).toDouble
 
-  val moralisApiKeyHeader: Header.Raw = Header.Raw(CIString("X-Api-Key"), moralisApiKey)
-
-  val moralisApiKeyHeaderInHeader: Headers = Headers(moralisApiKeyHeader)
 
   def addressType(
     address: String,
@@ -491,7 +497,7 @@ object Calls {
         .toEither
         .map(Option(_).filter(s => s != null || s.nonEmpty))
 
-    def cleanAddress(address: String) : Either[Throwable, String] = {
+    def cleanAddress(address: String): Either[Throwable, String] = {
       Option(address).filter(s => s != null && s.nonEmpty) // TODO: Add check that the address is valid
         .toRight(new IllegalArgumentException("Invalid address input"))
     }
@@ -508,7 +514,39 @@ object Calls {
     chain
       .leftMap(e => ErrorResponse(s"An error occurred during ENS resolution: ${e.getMessage}"))
       .value
+  }
 
+  // https://api.twitter.com/1.1/users/search.json?q=adschwartz.eth
+  def twitterHandle(
+    ens: String,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, TwitterResponses]] = {
+    val path = s"1.1/users/search.json"
+    val queryParams = Map(
+      "q" -> ens,
+    )
+    SimpleHttpClient
+      .call[List[TwitterResponseRaw], TwitterResponses](
+        host = twitterHost,
+        path = path,
+        queryParams = queryParams,
+        conversion = trs =>
+          TwitterResponses(
+            trs.map(tr =>
+              TwitterResponse(
+                name = tr.name,
+                handle = tr.screenName,
+                description = tr.description,
+                url = tr.screenName.map(s => s"https://twitter.com/$s"),
+                imageUrl = tr.profileImageUrlHttps,
+                followersCount = tr.followersCount,
+                friendsCount = tr.friendsCount,
+              )
+            ).sortBy(_.followersCount).reverse
+          ),
+        headers = twitterHeaders,
+      )
   }
 
 }
