@@ -39,11 +39,13 @@ object Calls {
   val ethplorerApiKey = "freekey"
   val ethplorerImageHost = "https://ethplorer.io"
 
+  val alchemyHost = "https://eth-mainnet.alchemyapi.io"
+  val alchemyKey = "XLf70gRxS2FpIWTNDGm2-wcrdP5yzgOS"
+
   val web3ConnectionString = "https://speedy-nodes-nyc.moralis.io/78759d66ae649f7b3ea47aaa/eth/mainnet"
   private lazy val web3Connection = new HttpService(web3ConnectionString)
   private lazy val web3j = Web3j.build(web3Connection)
   private lazy val ensResolver = new EnsResolver(web3j)
-
 
   val big10e18: BigDecimal = BigDecimal("1000000000000000000")
 
@@ -192,23 +194,92 @@ object Calls {
       )
   }
 
+  //  def addressNfts(
+  //    address: String,
+  //  )(implicit
+  //    client: Client[IO],
+  //  ): IO[Either[ErrorResponse, NftsResponse]] = {
+  //    val path = s"api/v2/$address/nft"
+  //    val queryParams = Map(
+  //      "chain" -> "eth",
+  //    )
+  //
+  //    SimpleHttpClient
+  //      .call[MoralisNfts, NftsResponse](
+  //        host = moralisHost,
+  //        path = path,
+  //        queryParams = queryParams,
+  //        conversion = data => NftsResponse(nfts = data.result.map(Nft(_)).toList),
+  //        headers = moralisApiKeyHeaderInHeader,
+  //      )
+  //  }
+
   def addressNfts(
     address: String,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, NftsResponse]] = {
-    val path = s"api/v2/$address/nft"
+    val path = s"v2/$alchemyKey/getNFTs/"
     val queryParams = Map(
-      "chain" -> "eth",
+      "owner" -> address,
     )
 
+    val headers = Headers(
+      Header.Raw(CIString("Content-Type"), "application/json"),
+      Header.Raw(CIString("Accept"), "*/*"),
+      //      Header.Raw(CIString("Accept-Encoding"), "gzip, deflate, br")
+    )
+
+    //    SimpleHttpClient
+    //      .call[AlchemyNftsResponse, NftsResponse](
+    //        host = alchemyHost,
+    //        path = path,
+    //        queryParams = queryParams,
+    //        conversion = data => {
+    //          NftsResponse(nfts =
+    //            data.ownedNfts.map(nft =>
+    //              Nft(
+    //                tokenAddress = nft.contract.flatMap(_.address),
+    //                contractType = None,
+    //                collectionName = nft.title,
+    //                symbol = None,
+    //                name = nft.title,
+    //                imageUrl =  None, //nft.metadata.flatMap(_.imageUrl),
+    //                description = nft.description,
+    //              )
+    //            )
+    //          )
+    //        },
+    //        headers = headers,
+    //      )
     SimpleHttpClient
-      .call[MoralisNfts, NftsResponse](
-        host = moralisHost,
+      .call[Json, NftsResponse](
+        host = alchemyHost,
         path = path,
         queryParams = queryParams,
-        conversion = data => NftsResponse(nfts = data.result.map(Nft(_)).toList),
-        headers = moralisApiKeyHeaderInHeader,
+        conversion = json => {
+          val nfts = root.ownedNfts.arr.getOption(json).getOrElse(Vector.empty).toList
+          NftsResponse(nfts =
+            nfts.map { nftJson =>
+              import cats.implicits._
+              val contract = root.contract.address.string.getOption(nftJson)
+              val image1 = root.metadata.image.string.getOption(nftJson)
+              val image2 = root.metadata.imageUrl.string.getOption(nftJson)
+              val nft =
+                Nft(
+                  tokenAddress = root.contract.address.string.getOption(nftJson),
+                  contractType = root.id.tokenMetadata.tokenType.string.getOption(nftJson),
+                  collectionName = root.title.string.getOption(nftJson),
+                  symbol = None,
+                  name = root.metadata.name.string.getOption(nftJson),
+                  imageUrl = image1 <+> image2,
+                  description = root.metadata.description.string.getOption(nftJson),
+                )
+              nft
+            }
+          )
+        },
+        headers = headers,
       )
   }
 
@@ -463,17 +534,18 @@ object Calls {
       tokens <- EitherT(addressTokensEthplorer(address))
         .map(ethplorerTokens => ethplorerTokens
           .tokens
-          .map(_.map { token =>
-            AddressToken(
-              contractAddress = token.tokenInfo.address,
-              value = toNativeValue(token),
-              rawValue = token.rawBalance,
-              valueUSD = None,
-              tokenName = token.tokenInfo.name,
-              tokenSymbol = token.tokenInfo.symbol,
-              tokenDecimal = token.tokenInfo.decimals,
-              imageUrl = token.tokenInfo.image.map(i => s"$ethplorerImageHost$i"),
-            )
+          .map(_.map {
+            token =>
+              AddressToken(
+                contractAddress = token.tokenInfo.address,
+                value = toNativeValue(token),
+                rawValue = token.rawBalance,
+                valueUSD = None,
+                tokenName = token.tokenInfo.name,
+                tokenSymbol = token.tokenInfo.symbol,
+                tokenDecimal = token.tokenInfo.decimals,
+                imageUrl = token.tokenInfo.image.map(i => s"$ethplorerImageHost$i"),
+              )
           })
         )
     } yield AddressTokensResponse(tokens)
@@ -512,7 +584,9 @@ object Calls {
     )
 
     chain
-      .leftMap(e => ErrorResponse(s"An error occurred during ENS resolution: ${e.getMessage}"))
+      .leftMap(e => ErrorResponse(s"An error occurred during ENS resolution: ${
+        e.getMessage
+      }"))
       .value
   }
 

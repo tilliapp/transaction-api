@@ -183,7 +183,7 @@ object TilliClasses {
   )
 
   case class Nft(
-    tokenAddress: String,
+    tokenAddress: Option[String],
     contractType: Option[String],
     collectionName: Option[String],
     symbol: Option[String],
@@ -216,7 +216,7 @@ object TilliClasses {
       if (_tokenUriOpt.exists(_.isLeft)) println(s"Error decoding token address ${moralisNft.tokenAddress}: ${_tokenUriOpt.get}")
       val tokenUri = _tokenUriOpt.flatMap(_.toOption)
       new Nft(
-        tokenAddress = moralisNft.tokenAddress,
+        tokenAddress = Option(moralisNft.tokenAddress),
         contractType = moralisNft.contractType,
         collectionName = moralisNft.name,
         symbol = moralisNft.symbol,
