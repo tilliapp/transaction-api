@@ -21,13 +21,19 @@ object TilliList {
     loadFile("data/token.json")
       .map(addLabel(_, TilliLabels.safe.toString))
 
+  private[list] def loadTilliVerifiedList: Either[Throwable, List[ListEntry]] =
+    loadFile("data/verified.json")
+      .map(addLabel(_, TilliLabels.verified.toString))
+
   lazy val tilliBlockList = EitherT(IO.delay(loadTilliBlockList))
   lazy val tilliTokenList = EitherT(IO.delay(loadTilliTokenList))
+  lazy val tilliVerifiedList = EitherT(IO.delay(loadTilliVerifiedList))
 
   lazy val tilliList: EitherT[IO, Throwable, List[ListEntry]] = for {
     bl <- tilliBlockList
     tl <- tilliTokenList
-  } yield bl ++ tl
+    tv <- tilliVerifiedList
+  } yield bl ++ tl ++ tv
 
   private def addLabel(entries: List[ListEntry], label: String): List[ListEntry] =
     entries.map(_.copy(labels = Some(List(label))))
