@@ -27,6 +27,7 @@ object TransactionApiHttpServer {
       ListEndpoint.endpoint,
       EnsEndpoint.endpoint,
       TwitterHandleEndpoint.endpoint,
+      NftAnalysis.endpoint,
     )
 
     val swaggerRoute = new SwaggerHttp4s(
@@ -47,6 +48,7 @@ object TransactionApiHttpServer {
       ListEndpoint.service,
       EnsEndpoint.service,
       TwitterHandleEndpoint.service,
+      NftAnalysis.service,
       swaggerRoute,
     ).reduce((a, b) => a <+> b)
     val router = Router("/va1/" -> routes).orNotFound

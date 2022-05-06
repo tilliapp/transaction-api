@@ -3,7 +3,7 @@ package app.tilli.codec
 import cats.instances.DoubleInstances
 
 import java.nio.charset.StandardCharsets
-import java.util.Base64
+import java.util.{Base64, UUID}
 import scala.util.Try
 
 object TilliClasses {
@@ -399,6 +399,10 @@ object TilliClasses {
     imageUrl: Option[String],
     followersCount: Option[Int],
     friendsCount: Option[Int],
+  )
+
+  case class NftAnalysisResponse(
+    id: UUID,
   )
 
 }

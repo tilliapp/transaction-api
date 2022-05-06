@@ -6,6 +6,7 @@ object Dependencies {
     "org.typelevel" %% "cats-core" % "2.7.0",
     "org.typelevel" %% "cats-free" % "2.7.0",
     "org.typelevel" %% "cats-effect" % "3.3.5",
+    "co.fs2" %% "fs2-core" % "3.2.7",
 
     "ch.qos.logback" % "logback-classic" % "1.2.11",
   )

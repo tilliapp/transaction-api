@@ -16,9 +16,12 @@ import org.web3j.ens.EnsResolver
 import org.web3j.protocol.Web3j
 import org.web3j.protocol.http.HttpService
 
+import java.util.UUID
 import scala.util.Try
 
 object Calls {
+
+  // TODO: Add accept: application/json to all calls
 
   val etherScanHost = "https://api.etherscan.io"
   val etherScanApiKey = "2F4I4U42A674STIFNB4M522BRFSP8MHQHA"
@@ -33,7 +36,7 @@ object Calls {
   val twitterHost = "https://api.twitter.com"
   val twitterBearerToken = "AAAAAAAAAAAAAAAAAAAAAOZNbQEAAAAAO%2BpmzNe9IamSzFMw32M%2F2y3sxUs%3DOtye0A4uJtk1BHs63mcs0qTAilhnZ6MnPFvx7aa16PazaR0PQN"
   val twitterHeaderBearerTokenHeader: Header.Raw = Header.Raw(CIString("Authorization"), s"Bearer $twitterBearerToken")
-  val twitterHeaders = Headers(twitterHeaderBearerTokenHeader)
+  val twitterHeaders: Headers = Headers(twitterHeaderBearerTokenHeader)
 
   val ethplorerHost = "https://api.ethplorer.io"
   val ethplorerApiKey = "freekey"
@@ -41,6 +44,13 @@ object Calls {
 
   val alchemyHost = "https://eth-mainnet.alchemyapi.io"
   val alchemyKey = "XLf70gRxS2FpIWTNDGm2-wcrdP5yzgOS"
+
+  val openseaApiKey = "f4104ad1cfc544cdaa7d4e1fb1273fc8"
+  val openseaHost = "https://api.opensea.io"
+  val openseaHeaders: Headers = Headers(
+    Header.Raw(CIString("X-Api-Key"), openseaApiKey),
+    Header.Raw(CIString("Accept"), "application/json"),
+  )
 
   val web3ConnectionString = "https://speedy-nodes-nyc.moralis.io/78759d66ae649f7b3ea47aaa/eth/mainnet"
   private lazy val web3Connection = new HttpService(web3ConnectionString)
@@ -628,6 +638,52 @@ object Calls {
         },
         headers = twitterHeaders,
       )
+  }
+
+  def getOwnersOfNftCollection(
+    collectionSlug: String,
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, List[String]]] = {
+    // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
+    val path = "api/v1/assets"
+    val queryParams = Map(
+      "collection_slug" -> collectionSlug,
+      "limit" -> "200",
+      "order_direction" -> "desc",
+      "include_orders" -> "false",
+    )
+    import cats.implicits._
+    SimpleHttpClient
+      .callPaged[Json, Json](
+        host = openseaHost,
+        path = path,
+        pageParamKey = "next",
+        cursorQueryParamKey = "cursor",
+        queryParams = queryParams,
+        conversion = json => json,
+        headers = openseaHeaders,
+      )
+      .map(_.sequence)
+      .map {
+        case Left(err) => Left(err)
+        case Right(jsonList) =>
+          import io.circe.optics.JsonPath.root
+          val allAddresses = jsonList.foldLeft(List.empty[String]) { (acc, json) =>
+            val newAddresses =
+              root.assets
+                .arr
+                .getOption(json)
+                .toList
+                .flatMap { r =>
+                  val temp = r.flatMap(e => root.owner.address.string.getOption(e))
+                  temp
+                }
+            newAddresses ++ acc
+          }
+          Right(allAddresses)
+      }
   }
 
 }
