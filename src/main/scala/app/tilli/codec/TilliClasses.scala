@@ -1,7 +1,5 @@
 package app.tilli.codec
 
-import cats.instances.DoubleInstances
-
 import java.nio.charset.StandardCharsets
 import java.util.{Base64, UUID}
 import scala.util.Try
@@ -154,8 +152,8 @@ object TilliClasses {
     image: Option[String],
     coingecko: Option[String],
     ethTransfersCount: Option[Int],
-//    price: EthplorerPrice, // Some times is returned as "false" by ethplorer...
-//    publicTags: List[String],
+    //    price: EthplorerPrice, // Some times is returned as "false" by ethplorer...
+    //    publicTags: List[String],
   )
 
   case class EthplorerToken(
@@ -404,5 +402,82 @@ object TilliClasses {
   case class NftAnalysisResponse(
     id: UUID,
   )
+
+  case class NftAssetOwner(
+    ownerAddress: Option[String],
+    assetContractAddress: Option[String],
+    assetContractType: Option[String],
+    assetContractName: Option[String],
+    assetContractUrl: Option[String],
+    assetContractSchema: Option[String],
+    tokenId: Option[String],
+    collectionName: Option[String],
+    collectionOpenSeaSlug: Option[String],
+    collectionUrl: Option[String],
+    collectionDiscord: Option[String],
+    collectionTelegram: Option[String],
+    collectionTwitterUsername: Option[String],
+    collectionInstagram: Option[String],
+    collectionWiki: Option[String],
+    collectionMediumUsername: Option[String],
+    count: Option[Int],
+    numberOfOwners: Option[Int],
+    floorPrice: Option[Double],
+    averagePrice: Option[Double],
+    marketCap: Option[Double],
+  ) {
+
+    def toStringList: List[String] =
+      List(
+        ownerAddress.getOrElse(null).asInstanceOf[String],
+        assetContractAddress.getOrElse(null).asInstanceOf[String],
+        assetContractType.getOrElse(null).asInstanceOf[String],
+        assetContractName.getOrElse(null).asInstanceOf[String],
+        assetContractUrl.getOrElse(null).asInstanceOf[String],
+        assetContractSchema.getOrElse(null).asInstanceOf[String],
+        tokenId.getOrElse(null).asInstanceOf[String],
+        collectionName.getOrElse(null).asInstanceOf[String],
+        collectionOpenSeaSlug.getOrElse(null).asInstanceOf[String],
+        collectionUrl.getOrElse(null).asInstanceOf[String],
+        collectionDiscord.getOrElse(null).asInstanceOf[String],
+        collectionTelegram.getOrElse(null).asInstanceOf[String],
+        collectionTwitterUsername.getOrElse(null).asInstanceOf[String],
+        collectionInstagram.getOrElse(null).asInstanceOf[String],
+        collectionWiki.getOrElse(null).asInstanceOf[String],
+        collectionMediumUsername.getOrElse(null).asInstanceOf[String],
+        count.getOrElse(null).asInstanceOf[String],
+        numberOfOwners.getOrElse(null).asInstanceOf[String],
+        floorPrice.getOrElse(null).asInstanceOf[String],
+        averagePrice.getOrElse(null).asInstanceOf[String],
+        marketCap.getOrElse(null).asInstanceOf[String],
+      )
+  }
+
+  object NftAssetOwner {
+    def header: List[String] =
+      List(
+        "ownerAddress",
+        "assetContractAddress",
+        "assetContractType",
+        "assetContractName",
+        "assetContractUrl",
+        "assetContractSchema",
+        "tokenId",
+        "collectionName",
+        "collectionOpenSeaSlug",
+        "collectionUrl",
+        "collectionDiscord",
+        "collectionTelegram",
+        "collectionTwitterUsername",
+        "collectionInstagram",
+        "collectionWiki",
+        "collectionMediumUsername",
+        "count",
+        "numberOfOwners",
+        "floorPrice",
+        "averagePrice",
+        "marketCap",
+      )
+  }
 
 }

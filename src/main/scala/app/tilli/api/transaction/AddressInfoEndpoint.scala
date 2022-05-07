@@ -1,16 +1,14 @@
 package app.tilli.api.transaction
 
 import app.tilli.api.utils.ApiSerdes.Serializer
-import app.tilli.codec.TilliClasses.{AddressHistoryResponse, AddressInformationResponse, ErrorResponse}
+import app.tilli.codec.TilliClasses.{AddressInformationResponse, ErrorResponse}
 import app.tilli.codec._
 import cats.data.EitherT
-import cats.effect.{IO, Temporal}
+import cats.effect.IO
 import org.http4s.HttpRoutes
 import org.http4s.client.Client
 import sttp.tapir._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
-
-import scala.concurrent.duration.DurationInt
 
 object AddressInfoEndpoint extends TilliCodecs with TilliSchema {
 

@@ -27,12 +27,10 @@ object NftAnalysis extends TilliCodecs with TilliSchema {
   def function(q: String)(implicit
     httpClient: Client[IO],
   ): IO[Either[ErrorResponse, NftAnalysisResponse]] = {
+    import cats.effect.unsafe.implicits.global
     val uuid = UUID.randomUUID()
-    (Calls.getOwnersOfNftCollection(q, uuid)
-//      .map(r => r.map(_.noSpaces))
-      .flatTap(r => IO(println(r)))
-      ) &>
-      IO(Right(NftAnalysisResponse(uuid)))
+    Calls.getNftAnalytics(q, uuid).unsafeRunAndForget()
+    IO(Right(NftAnalysisResponse(uuid)))
   }
 
 

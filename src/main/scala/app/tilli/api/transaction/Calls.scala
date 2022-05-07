@@ -7,6 +7,7 @@ import app.tilli.codec.TilliClasses._
 import app.tilli.codec.TilliCodecs._
 import cats.data.EitherT
 import cats.effect.IO
+import com.github.tototoshi.csv.CSVWriter
 import io.circe.Json
 import io.circe.optics.JsonPath._
 import org.http4s.client.Client
@@ -16,6 +17,7 @@ import org.web3j.ens.EnsResolver
 import org.web3j.protocol.Web3j
 import org.web3j.protocol.http.HttpService
 
+import java.io.File
 import java.util.UUID
 import scala.util.Try
 
@@ -640,12 +642,52 @@ object Calls {
       )
   }
 
+  def getNftAnalytics(
+    collectionSlug: String,
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, Unit]] = {
+
+    val chain =
+      for {
+        ownerAssets <- EitherT(_getNftAnalytics(collectionSlug, uuid))
+        write <- EitherT(IO {
+          Try {
+            val f = new File("out.csv")
+            val writer = CSVWriter.open(f)
+            writer.writeAll(List(NftAssetOwner.header)++ownerAssets.map(_.toStringList))
+            writer.close()
+          }.toEither
+        }).leftMap(e => ErrorResponse(e.getMessage))
+      } yield write
+    chain.value
+  }
+
+  def _getNftAnalytics(
+    collectionSlug: String,
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, List[NftAssetOwner]]] = {
+    println(s"Starting $uuid!")
+    val chain =
+      for {
+        owners <- EitherT(getOwnersOfNftCollection(collectionSlug, uuid))
+        _ = println(s"Got owners ($uuid): ${owners}")
+        assets <- EitherT(getOwnerNFTAssets(owners,uuid))
+        _ = println(s"Done $uuid!")
+      } yield assets
+    chain.value
+  }
+
   def getOwnersOfNftCollection(
     collectionSlug: String,
     uuid: UUID,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponse, List[String]]] = {
+    import cats.implicits._
     // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
     val path = "api/v1/assets"
     val queryParams = Map(
@@ -654,7 +696,6 @@ object Calls {
       "order_direction" -> "desc",
       "include_orders" -> "false",
     )
-    import cats.implicits._
     SimpleHttpClient
       .callPaged[Json, Json](
         host = openseaHost,
@@ -664,6 +705,7 @@ object Calls {
         queryParams = queryParams,
         conversion = json => json,
         headers = openseaHeaders,
+        uuid = Some(uuid),
       )
       .map(_.sequence)
       .map {
@@ -671,19 +713,120 @@ object Calls {
         case Right(jsonList) =>
           import io.circe.optics.JsonPath.root
           val allAddresses = jsonList.foldLeft(List.empty[String]) { (acc, json) =>
-            val newAddresses =
+            acc ++
               root.assets
                 .arr
                 .getOption(json)
                 .toList
-                .flatMap { r =>
-                  val temp = r.flatMap(e => root.owner.address.string.getOption(e))
-                  temp
-                }
-            newAddresses ++ acc
-          }
+                .flatMap(_.flatMap(e => root.owner.address.string.getOption(e)))
+                .filter(s => s != null && s.nonEmpty && s != "0x0000000000000000000000000000000000000000")
+          }.distinctBy(_.toLowerCase)
           Right(allAddresses)
       }
+  }
+
+  def getOwnerNFTAssets(
+    owners: List[String],
+    uuid: UUID
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, List[NftAssetOwner]]] = {
+    import cats.implicits._
+    val total = owners.size
+    var counter = 1
+    val stream: fs2.Stream[IO, Either[ErrorResponse, List[NftAssetOwner]]] =
+      fs2.Stream
+        .iterable(owners)
+        .evalMap(owner => (IO(println(s"getOwnerNFTAssets($owner) $counter/$total")) *> IO{counter = counter + 1} *> getOwnerNFTAssets(owner, uuid)))
+
+    val temp = stream
+      .takeWhile(_.isRight)
+      .compile
+      .toList
+      .map(_.sequence)
+      .map(_.map(_.flatten))
+
+    temp
+  }
+
+  def getOwnerNFTAssets(
+    owner: String,
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponse, List[NftAssetOwner]]] = {
+    // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
+    val path = "api/v1/assets"
+    val queryParams = Map(
+      "owner" -> owner,
+      "limit" -> "200",
+      "order_direction" -> "desc",
+      "include_orders" -> "false",
+    )
+
+    import cats.implicits._
+
+    SimpleHttpClient
+      .callPaged[Json, Json](
+        host = openseaHost,
+        path = path,
+        pageParamKey = "next",
+        cursorQueryParamKey = "cursor",
+        queryParams = queryParams,
+        conversion = json => json,
+        headers = openseaHeaders,
+        uuid = Some(uuid),
+      )
+      .map(_.sequence)
+      .map {
+        case Left(err) => Left(err)
+        case Right(jsonList) =>
+
+          import io.circe.optics.JsonPath.root
+
+          val allAssets = jsonList.foldLeft(List.empty[NftAssetOwner]) {
+            (acc, json) =>
+              acc ++
+                root.assets
+                  .arr
+                  .getOption(json)
+                  .toList
+                  .flatMap(_.map(json => extractNftAssetOwnerDetails(json)))
+          }
+          Right(allAssets)
+      }
+  }
+
+  def extractNftAssetOwnerDetails(json: Json): NftAssetOwner = {
+
+    import io.circe.optics.JsonPath.root
+
+    NftAssetOwner(
+      ownerAddress = root.owner.address.string.getOption(json),
+
+      assetContractAddress = root.assetContract.address.string.getOption(json),
+      assetContractType = root.assetContract.assetContractType.string.getOption(json),
+      assetContractName = root.assetContract.name.string.getOption(json),
+      assetContractUrl = root.assetContract.externalLink.string.getOption(json),
+      assetContractSchema = root.assetContract.schemaName.string.getOption(json),
+      tokenId = root.tokenId.string.getOption(json),
+      collectionName = root.collection.name.string.getOption(json),
+      collectionOpenSeaSlug = root.collection.slug.string.getOption(json),
+      collectionUrl = root.collection.externalUrl.string.getOption(json),
+      collectionDiscord = root.collection.discordUrl.string.getOption(json),
+      collectionTelegram = root.collection.telegramUrl.string.getOption(json),
+      collectionTwitterUsername = root.collection.twitterUsername.string.getOption(json),
+      collectionInstagram = root.collection.instagramUsername.string.getOption(json),
+      collectionWiki = root.collection.wikiUrl.string.getOption(json),
+      collectionMediumUsername = root.collection.mediumUsername.string.getOption(json),
+
+      count = None,
+      numberOfOwners = None,
+      floorPrice = None,
+      averagePrice = None,
+      marketCap = None,
+    )
+
   }
 
 }

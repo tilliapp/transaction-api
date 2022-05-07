@@ -28,7 +28,9 @@ object Dependencies {
   )
 
   val serdesDependencies = Seq(
-    "io.circe" %% "circe-optics" % "0.14.1"
+    "io.circe" %% "circe-optics" % "0.14.1",
+    "com.github.tototoshi" %% "scala-csv" % "1.3.10",
+//    "io.kontainers" %% "purecsv" % "1.3.10",
   )
 
   val web3Dependencies = Seq(

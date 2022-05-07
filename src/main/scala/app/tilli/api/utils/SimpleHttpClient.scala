@@ -9,6 +9,7 @@ import io.circe.{Decoder, Encoder}
 import org.http4s.client.Client
 import org.http4s.{Headers, Request, Uri}
 
+import java.util.UUID
 import scala.concurrent.duration.DurationInt
 
 object SimpleHttpClient extends Logging {
@@ -56,12 +57,13 @@ object SimpleHttpClient extends Logging {
     queryParams: Map[String, String],
     conversion: A => B,
     headers: Headers = Headers.empty,
+    uuid: Option[UUID] = None,
   )(implicit
     client: Client[IO],
     decoder: Decoder[A],
     encoder: Encoder[B],
   ): IO[List[Either[ErrorResponse, B]]] = {
-    val stream =
+    val stream: fs2.Stream[IO, Either[ErrorResponse, B]] =
       fs2.Stream.unfoldLoopEval(
         s = ""
       )(page => {
@@ -79,7 +81,7 @@ object SimpleHttpClient extends Logging {
                 val nextPage = root.selectDynamic(pageParamKey).string.getOption(json)
                 nextPage
             }
-            println(s"Next page=$nextPageOption")
+            println(s"Next page=$nextPageOption${uuid.map(u => s"($u)").getOrElse("")}")
             (obj, nextPageOption)
           } <* Temporal[IO].sleep(250.milliseconds)
       })
