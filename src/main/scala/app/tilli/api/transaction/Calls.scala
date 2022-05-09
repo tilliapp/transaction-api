@@ -1,12 +1,13 @@
 package app.tilli.api.transaction
 
 import app.tilli.api.list.TilliList
+import app.tilli.api.transaction.Calls.getTimestamp
 import app.tilli.api.utils.SimpleHttpClient
 import app.tilli.codec.AddressType
 import app.tilli.codec.TilliClasses._
 import app.tilli.codec.TilliCodecs._
 import cats.data.EitherT
-import cats.effect.IO
+import cats.effect.{IO, Temporal}
 import com.github.tototoshi.csv.CSVWriter
 import io.circe.Json
 import io.circe.optics.JsonPath._
@@ -18,7 +19,10 @@ import org.web3j.protocol.Web3j
 import org.web3j.protocol.http.HttpService
 
 import java.io.File
+import java.time.{Instant, ZoneId}
+import java.time.format.DateTimeFormatter
 import java.util.UUID
+import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 object Calls {
@@ -72,7 +76,7 @@ object Calls {
     address: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressTypeResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressTypeResponse]] = {
     val path = "api"
     val queryParams = Map(
       "module" -> "contract",
@@ -97,7 +101,7 @@ object Calls {
     limit: Int = 100,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressHistoryResponse]] = {
     val path = s"api"
     val startBlock = "0"
     val endblock = "99999999"
@@ -146,7 +150,7 @@ object Calls {
     sort: String = "desc"
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressHistoryResponse]] = {
     val path = s"api"
     val page = "1"
     val queryParams = Map(
@@ -174,7 +178,7 @@ object Calls {
     sendingAddress: Option[String],
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressHistoryResponse]] = {
     //    val instant = ZonedDateTime.now().minusMonths(3).toInstant
     val chain = for {
       //      startBlockNumber <- EitherT(getBlockFromDate(instant.toEpochMilli.toString))
@@ -192,7 +196,7 @@ object Calls {
     address: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, EthplorerTokens]] = {
+  ): IO[Either[ErrorResponseTrait, EthplorerTokens]] = {
     val path = s"getAddressInfo/$address"
     val queryParams = Map(
       "apiKey" -> ethplorerApiKey,
@@ -210,7 +214,7 @@ object Calls {
   //    address: String,
   //  )(implicit
   //    client: Client[IO],
-  //  ): IO[Either[ErrorResponse, NftsResponse]] = {
+  //  ): IO[Either[ErrorResponseTrait, NftsResponse]] = {
   //    val path = s"api/v2/$address/nft"
   //    val queryParams = Map(
   //      "chain" -> "eth",
@@ -230,7 +234,7 @@ object Calls {
     address: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, NftsResponse]] = {
+  ): IO[Either[ErrorResponseTrait, NftsResponse]] = {
     val path = s"v2/$alchemyKey/getNFTs/"
     val queryParams = Map(
       "owner" -> address,
@@ -301,7 +305,7 @@ object Calls {
     limit: Int = 5000,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressVolumeResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressVolumeResponse]] = {
     val path = s"api"
     val startBlock = "0"
     val endblock = "99999999"
@@ -339,7 +343,7 @@ object Calls {
           }
         ))
 
-    val conversionCall: EitherT[IO, ErrorResponse, ConversionResult] = EitherT(convertCurrency("ethereum", "usd"))
+    val conversionCall: EitherT[IO, ErrorResponseTrait, ConversionResult] = EitherT(convertCurrency("ethereum", "usd"))
 
     val chain =
       for {
@@ -359,7 +363,7 @@ object Calls {
     to: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, ConversionResult]] = {
+  ): IO[Either[ErrorResponseTrait, ConversionResult]] = {
     // https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=USD
 
     val fromClean = from.toLowerCase
@@ -369,7 +373,7 @@ object Calls {
       "ids" -> fromClean,
       "vs_currencies" -> toClean
     )
-    val call: IO[Either[ErrorResponse, Either[Throwable, ConversionResult]]] =
+    val call: IO[Either[ErrorResponseTrait, Either[Throwable, ConversionResult]]] =
       SimpleHttpClient
         .call[Json, Either[Throwable, ConversionResult]](
           host = coinGeckoHost,
@@ -389,7 +393,7 @@ object Calls {
           }
         )
 
-    val maps: IO[Either[ErrorResponse, ConversionResult]] =
+    val maps: IO[Either[ErrorResponseTrait, ConversionResult]] =
       call.flatMap(e => IO(
         e match {
           case Left(err) => Left(err)
@@ -406,7 +410,7 @@ object Calls {
     address: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressBalanceResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressBalanceResponse]] = {
     val path = "api"
     val queryParams = Map(
       "module" -> "account",
@@ -415,7 +419,7 @@ object Calls {
       "apikey" -> etherScanApiKey,
     )
 
-    val balanceCall: EitherT[IO, ErrorResponse, AddressBalanceResponse] = EitherT(
+    val balanceCall: EitherT[IO, ErrorResponseTrait, AddressBalanceResponse] = EitherT(
       SimpleHttpClient
         .call[EtherscanBalance, AddressBalanceResponse](
           host = etherScanHost,
@@ -428,7 +432,7 @@ object Calls {
             )
         ))
 
-    val conversionCall: EitherT[IO, ErrorResponse, ConversionResult] = EitherT(convertCurrency("ethereum", "usd"))
+    val conversionCall: EitherT[IO, ErrorResponseTrait, ConversionResult] = EitherT(convertCurrency("ethereum", "usd"))
 
     val chain =
       for {
@@ -444,7 +448,7 @@ object Calls {
     date: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, MoralisDateBlockResponse]] = {
+  ): IO[Either[ErrorResponseTrait, MoralisDateBlockResponse]] = {
     val path = s"api/v2/dateToBlock"
     val queryParams = Map(
       "chain" -> "eth",
@@ -466,7 +470,7 @@ object Calls {
     contractAddress: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressBalanceResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressBalanceResponse]] = {
     val path = "api"
     val queryParams = Map(
       "module" -> "account",
@@ -476,7 +480,7 @@ object Calls {
       "apikey" -> etherScanApiKey,
     )
 
-    val balanceCall: EitherT[IO, ErrorResponse, EtherscanBalance] = EitherT(
+    val balanceCall: EitherT[IO, ErrorResponseTrait, EtherscanBalance] = EitherT(
       SimpleHttpClient
         .call[EtherscanBalance, EtherscanBalance](
           host = etherScanHost,
@@ -497,7 +501,7 @@ object Calls {
     val chain =
       for {
         balance <- balanceCall
-        conversion <- EitherT(conversionCall.map(Right(_).asInstanceOf[Either[ErrorResponse, Option[ConversionResult]]]))
+        conversion <- EitherT(conversionCall.map(Right(_).asInstanceOf[Either[ErrorResponseTrait, Option[ConversionResult]]]))
       } yield {
         val balanceUSD =
           for {
@@ -540,7 +544,7 @@ object Calls {
     address: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, AddressTokensResponse]] = {
+  ): IO[Either[ErrorResponseTrait, AddressTokensResponse]] = {
 
     val chain = for {
       tokens <- EitherT(addressTokensEthplorer(address))
@@ -565,7 +569,7 @@ object Calls {
     chain.value
   }
 
-  def lists(listRequest: String): IO[Either[ErrorResponse, ListResponse]] = {
+  def lists(listRequest: String): IO[Either[ErrorResponseTrait, ListResponse]] = {
     val data = listRequest match {
       case "tilli" => TilliList.tilliList.map(l => ListResponse(l)).leftMap(_ => ErrorResponse("An error occurred while loading a list"))
       case _ => EitherT(IO(Left(ErrorResponse(s"Unknown list $listRequest")).asInstanceOf[Either[ErrorResponse, ListResponse]]))
@@ -574,7 +578,7 @@ object Calls {
   }
 
 
-  def ensResolution(address: String): IO[Either[ErrorResponse, EnsResolutionResponse]] = {
+  def ensResolution(address: String): IO[Either[ErrorResponseTrait, EnsResolutionResponse]] = {
 
     def call(address: String, f: String => String): Either[Throwable, Option[String]] =
       Try(f(address))
@@ -607,7 +611,7 @@ object Calls {
     ens: String,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, TwitterResponses]] = {
+  ): IO[Either[ErrorResponseTrait, TwitterResponses]] = {
 
     def toTwitterResponse(responsesRaw: List[TwitterResponseRaw]): List[TwitterResponse] =
       responsesRaw.map(tr =>
@@ -647,38 +651,158 @@ object Calls {
     uuid: UUID,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, Unit]] = {
-
+  ): IO[Either[ErrorResponseTrait, Unit]] = {
+    println(s"Starting $uuid! ($collectionSlug $uuid ${getTimestamp()})")
+    //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("flyfrogs-ii8t6qt5t5")))
+    //    val ownerAssets = List.empty
     val chain =
-      for {
-        ownerAssets <- EitherT(_getNftAnalytics(collectionSlug, uuid))
-        write <- EitherT(IO {
-          Try {
-            val f = new File("out.csv")
-            val writer = CSVWriter.open(f)
-            writer.writeAll(List(NftAssetOwner.header)++ownerAssets.map(_.toStringList))
-            writer.close()
-          }.toEither
-        }).leftMap(e => ErrorResponse(e.getMessage))
-      } yield write
-    chain.value
+    for {
+      ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid))
+      distinctNftSlugs <- EitherT(IO(Right(getDistinctNftCollections(ownerAssets)).asInstanceOf[Either[ErrorResponseTrait, List[NftMarketData]]]))
+      marketData <- EitherT(getMarketData(distinctNftSlugs, uuid))
+      enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
+        .filter(_.floorPrice.exists(_ >= 0.05))
+
+      write <- EitherT(writeToFile(enrichedOwnerAssets, uuid, collectionSlug)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+      _ = println(s"Done $uuid! ($uuid ${getTimestamp()})")
+    } yield write
+    chain
+      .leftSemiflatTap(err => IO(s"Error: ${println(err.message)}"))
+      .value
+
   }
 
-  def _getNftAnalytics(
+  def enrichNftAssetsWithMarketData(
+    nftAssets: List[NftAssetOwner],
+    marketData: List[NftMarketData],
+  ): List[NftAssetOwner] = {
+    val indexedMarketData = marketData.filter(_.assetContractAddress.nonEmpty).map(r => r.assetContractAddress.get -> r).toMap
+    nftAssets.map { asset =>
+      asset.assetContractAddress
+        .map(address => indexedMarketData(address))
+        .map(marketData =>
+          asset.copy(
+            numberOfOwners = marketData.numberOfOwners,
+            floorPrice = marketData.floorPrice,
+            averagePrice = marketData.averagePrice,
+            marketCap = marketData.marketCap,
+          )
+        ).getOrElse(asset)
+    }
+
+  }
+
+  def getDistinctNftCollections(nftAssetOwners: List[NftAssetOwner]): List[NftMarketData] =
+    nftAssetOwners.map(asset =>
+      NftMarketData(
+        assetContractAddress = asset.assetContractAddress,
+        collectionOpenSeaSlug = asset.collectionOpenSeaSlug,
+        numberOfOwners = None,
+        floorPrice = None,
+        averagePrice = None,
+        marketCap = None,
+      )
+    ).filter(md => md.assetContractAddress.nonEmpty && md.collectionOpenSeaSlug.nonEmpty)
+      .distinctBy(_.assetContractAddress.map(_.toLowerCase()))
+
+  def writeToFile(
+    nftAssetOwners: List[NftAssetOwner],
+    uuid: UUID,
+    collectionName: String,
+  ): IO[Either[Throwable, Unit]] =
+    IO {
+      val timestamp = formatter.format(Instant.now())
+      val fileName = s"nft_assets_${collectionName}_${timestamp}_${uuid}.csv"
+
+      Try {
+        val f = new File(fileName)
+        val writer = CSVWriter.open(f)
+        println(s"Starting write to $fileName")
+        writer.writeAll(List(NftAssetOwner.header) ++ nftAssetOwners.map(_.toStringList))
+        writer.flush()
+        writer.close()
+        println(s"Finished write to $fileName")
+      }.toEither
+    }
+
+    private val PATTERN_FORMAT = "yyyy-MM-dd"
+    private val formatter = DateTimeFormatter.ofPattern(PATTERN_FORMAT).withZone(ZoneId.systemDefault());
+  def getTimestamp(now: Instant = Instant.now()): String = now.toString
+
+  def getOwnerAssets(
     collectionSlug: String,
     uuid: UUID,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, List[NftAssetOwner]]] = {
-    println(s"Starting $uuid!")
+  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
     val chain =
       for {
         owners <- EitherT(getOwnersOfNftCollection(collectionSlug, uuid))
-        _ = println(s"Got owners ($uuid): ${owners}")
-        assets <- EitherT(getOwnerNFTAssets(owners,uuid))
-        _ = println(s"Done $uuid!")
+        _ = println(s"Got owners ($uuid ${getTimestamp()}) ${owners}")
+        assets <- EitherT(getOwnerNFTAssets(owners, uuid))
       } yield assets
     chain.value
+  }
+
+  def getMarketData(
+    nftCollections: List[NftMarketData],
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponseTrait, List[NftMarketData]]] = {
+    import cats.implicits._
+    val total = nftCollections.size
+    var counter = 1
+    fs2.Stream
+      .iterable(nftCollections)
+      .evalMap(nftCollection =>
+        IO(println(s"getMarketData(${nftCollection.collectionOpenSeaSlug}) ($uuid ${getTimestamp()}) $counter/$total")) *>
+          IO {
+            counter = counter + 1
+          } *> getMarketData(nftCollection, uuid) <* Temporal[IO].sleep(300.milliseconds)
+      )
+      .takeWhile(_.isRight)
+      .compile
+      .toList
+      .map(_.sequence)
+  }
+
+  def getMarketData(
+    nftMarketData: NftMarketData,
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponseTrait, NftMarketData]] = {
+    // https://api.opensea.io/api/v1/collection/philosophicalfoxes/stats
+    val path = s"api/v1/collection/${nftMarketData.collectionOpenSeaSlug.get}/stats"
+    val queryParams = Map.empty[String, String]
+
+    SimpleHttpClient
+      .call[Json, Json](
+        host = openseaHost,
+        path = path,
+        queryParams = queryParams,
+        conversion = json => json,
+        headers = openseaHeaders,
+      )
+      .map {
+        case Left(err) => err.code match {
+          case Some("404") => Right(nftMarketData)
+          case Some("500") => Right(nftMarketData)
+          case _ => Left(err)
+        }
+        case Right(json) =>
+          import io.circe.optics.JsonPath.root
+          Right(
+            nftMarketData.copy(
+              numberOfOwners = root.stats.numOwners.int.getOption(json),
+              floorPrice = root.stats.floorPrice.double.getOption(json),
+              averagePrice = root.stats.averagePrice.double.getOption(json),
+              marketCap = root.stats.marketCap.double.getOption(json),
+              totalVolume = root.stats.totalVolume.double.getOption(json),
+            )
+          )
+      }
   }
 
   def getOwnersOfNftCollection(
@@ -686,7 +810,7 @@ object Calls {
     uuid: UUID,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, List[String]]] = {
+  ): IO[Either[ErrorResponseTrait, List[String]]] = {
     import cats.implicits._
     // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
     val path = "api/v1/assets"
@@ -730,23 +854,21 @@ object Calls {
     uuid: UUID
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
     import cats.implicits._
     val total = owners.size
     var counter = 1
-    val stream: fs2.Stream[IO, Either[ErrorResponse, List[NftAssetOwner]]] =
-      fs2.Stream
-        .iterable(owners)
-        .evalMap(owner => (IO(println(s"getOwnerNFTAssets($owner) $counter/$total")) *> IO{counter = counter + 1} *> getOwnerNFTAssets(owner, uuid)))
-
-    val temp = stream
+    fs2.Stream
+      .iterable(owners)
+      .evalMap(owner => (IO(println(s"getOwnerNFTAssets($owner) ($uuid ${getTimestamp()}) $counter/$total")) *>
+        IO {
+          counter = counter + 1
+        } *> getOwnerNFTAssets(owner, uuid)))
       .takeWhile(_.isRight)
       .compile
       .toList
       .map(_.sequence)
       .map(_.map(_.flatten))
-
-    temp
   }
 
   def getOwnerNFTAssets(
@@ -754,7 +876,7 @@ object Calls {
     uuid: UUID,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponse, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
     // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
     val path = "api/v1/assets"
     val queryParams = Map(
@@ -825,6 +947,7 @@ object Calls {
       floorPrice = None,
       averagePrice = None,
       marketCap = None,
+      totalVolume = None,
     )
 
   }

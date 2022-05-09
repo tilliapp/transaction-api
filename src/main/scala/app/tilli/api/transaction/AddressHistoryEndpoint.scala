@@ -28,7 +28,7 @@ object AddressHistoryEndpoint extends TilliCodecs with TilliSchema {
   ): IO[Either[ErrorResponse, AddressHistoryResponse]] = {
     val receivingAddress = input._1
     val sendingAddress = input._2
-    Calls.combinedAddressHistory(receivingAddress, sendingAddress)
+    Calls.combinedAddressHistory(receivingAddress, sendingAddress).asInstanceOf[IO[Either[ErrorResponse, AddressHistoryResponse]]]
   }
 
 }

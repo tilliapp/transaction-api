@@ -20,7 +20,7 @@ object ListEndpoint extends TilliCodecs with TilliSchema {
   def service: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(endpoint.serverLogic(function))
 
   def function(listRequest: String): IO[Either[ErrorResponse, ListResponse]] =
-    Calls.lists(listRequest)
+    Calls.lists(listRequest).asInstanceOf[IO[Either[ErrorResponse, ListResponse]]]
 
 
 }

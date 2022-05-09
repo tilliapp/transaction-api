@@ -27,10 +27,15 @@ object Dependencies {
     "org.http4s" %% "http4s-circe" % "0.23.10",
   )
 
+  val dataDependencies = Seq(
+    "io.github.kirill5k" %% "mongo4cats-core" % "0.4.8",
+    "io.github.kirill5k" %% "mongo4cats-circe" % "0.4.8",
+  )
+
   val serdesDependencies = Seq(
     "io.circe" %% "circe-optics" % "0.14.1",
     "com.github.tototoshi" %% "scala-csv" % "1.3.10",
-//    "io.kontainers" %% "purecsv" % "1.3.10",
+    //    "io.kontainers" %% "purecsv" % "1.3.10",
   )
 
   val web3Dependencies = Seq(

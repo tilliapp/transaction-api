@@ -1,7 +1,7 @@
 package app.tilli.api.transaction
 
 import app.tilli.api.utils.ApiSerdes.Serializer
-import app.tilli.codec.TilliClasses.{AddressInformationResponse, ErrorResponse}
+import app.tilli.codec.TilliClasses.{AddressBalanceResponse, AddressInformationResponse, ErrorResponse}
 import app.tilli.codec._
 import cats.data.EitherT
 import cats.effect.IO
@@ -43,7 +43,7 @@ object AddressInfoEndpoint extends TilliCodecs with TilliSchema {
         volume,
       )
 
-    chain.value
+    chain.value.asInstanceOf[IO[Either[ErrorResponse, AddressInformationResponse]]]
   }
 
 }

@@ -26,7 +26,7 @@ object AddressNFTsEndpoint extends TilliCodecs with TilliSchema {
     httpClient: Client[IO],
   ): IO[Either[ErrorResponse, NftsResponse]] = {
     val address = input.toLowerCase
-    Calls.addressNfts(address)
+    Calls.addressNfts(address).asInstanceOf[IO[Either[ErrorResponse, NftsResponse]]]
   }
 
 

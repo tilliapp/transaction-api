@@ -26,7 +26,7 @@ object AddressTypeEndpoint extends TilliCodecs with TilliSchema {
     httpClient: Client[IO],
   ): IO[Either[ErrorResponse, AddressTypeResponse]] = {
     val address = input.toLowerCase
-    Calls.addressType(address)
+    Calls.addressType(address).asInstanceOf[IO[Either[ErrorResponse, AddressTypeResponse]]]
   }
 
 }

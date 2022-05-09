@@ -26,7 +26,7 @@ object AddressBalanceEndpoint extends TilliCodecs with TilliSchema {
   def function(input: String)(implicit
     httpClient: Client[IO],
   ): IO[Either[ErrorResponse, AddressBalanceResponse]] = {
-    Calls.addressBalance(input)
+    Calls.addressBalance(input).asInstanceOf[IO[Either[ErrorResponse, AddressBalanceResponse]]]
   }
 
 }

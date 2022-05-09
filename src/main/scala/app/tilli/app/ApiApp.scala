@@ -11,10 +11,10 @@ object ApiApp extends IOApp {
     implicit val async = Async[IO]
 
     val httpClientSettings = HttpClientConfig(
-      connectTimeoutSecs = 10,
-      requestTimeoutSecs = 10,
-      maxRetryWaitMilliSecs = 10,
-      maxRetries = 10,
+      connectTimeoutSecs = 30,
+      requestTimeoutSecs = 30,
+      maxRetryWaitMilliSecs = 60000,
+      maxRetries = 20,
     )
 
     BlazeHttpClient

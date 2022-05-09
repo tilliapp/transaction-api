@@ -25,7 +25,7 @@ object AddressTokensEndpoint extends TilliCodecs with TilliSchema {
   def function(input: String)(implicit
     httpClient: Client[IO],
   ): IO[Either[ErrorResponse, AddressTokensResponse]] = {
-    Calls.addressTokens(input)
+    Calls.addressTokens(input).asInstanceOf[IO[Either[ErrorResponse, AddressTokensResponse]]]
   }
 
 }

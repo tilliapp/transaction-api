@@ -30,7 +30,7 @@ object AddressVolumeEndpoint extends TilliCodecs with TilliSchema {
     val receivingAddress = input._1.toLowerCase
     val sendingAddress = input._2.map(_.toLowerCase)
 
-    Calls.addressVolume(receivingAddress, sendingAddress)
+    Calls.addressVolume(receivingAddress, sendingAddress).asInstanceOf[IO[Either[ErrorResponse, AddressVolumeResponse]]]
 
   }
 

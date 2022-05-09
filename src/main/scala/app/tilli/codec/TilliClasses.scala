@@ -171,10 +171,14 @@ object TilliClasses {
     tokens: Option[List[EthplorerToken]],
   )
 
+  trait ErrorResponseTrait {
+    def message: String
+  }
+
   // ****** Internal Responses
   case class ErrorResponse(
     message: String,
-  )
+  ) extends ErrorResponseTrait
 
   case class AddressTypeResponse(
     addressType: AddressType.Value,
@@ -425,6 +429,7 @@ object TilliClasses {
     floorPrice: Option[Double],
     averagePrice: Option[Double],
     marketCap: Option[Double],
+    totalVolume: Option[Double],
   ) {
 
     def toStringList: List[String] =
@@ -433,23 +438,24 @@ object TilliClasses {
         assetContractAddress.getOrElse(null).asInstanceOf[String],
         assetContractType.getOrElse(null).asInstanceOf[String],
         assetContractName.getOrElse(null).asInstanceOf[String],
-        assetContractUrl.getOrElse(null).asInstanceOf[String],
-        assetContractSchema.getOrElse(null).asInstanceOf[String],
+//        assetContractUrl.getOrElse(null).asInstanceOf[String],
+//        assetContractSchema.getOrElse(null).asInstanceOf[String],
         tokenId.getOrElse(null).asInstanceOf[String],
         collectionName.getOrElse(null).asInstanceOf[String],
         collectionOpenSeaSlug.getOrElse(null).asInstanceOf[String],
         collectionUrl.getOrElse(null).asInstanceOf[String],
-        collectionDiscord.getOrElse(null).asInstanceOf[String],
-        collectionTelegram.getOrElse(null).asInstanceOf[String],
-        collectionTwitterUsername.getOrElse(null).asInstanceOf[String],
-        collectionInstagram.getOrElse(null).asInstanceOf[String],
-        collectionWiki.getOrElse(null).asInstanceOf[String],
-        collectionMediumUsername.getOrElse(null).asInstanceOf[String],
-        count.getOrElse(null).asInstanceOf[String],
-        numberOfOwners.getOrElse(null).asInstanceOf[String],
-        floorPrice.getOrElse(null).asInstanceOf[String],
-        averagePrice.getOrElse(null).asInstanceOf[String],
-        marketCap.getOrElse(null).asInstanceOf[String],
+//        collectionDiscord.getOrElse(null).asInstanceOf[String],
+//        collectionTelegram.getOrElse(null).asInstanceOf[String],
+//        collectionTwitterUsername.getOrElse(null).asInstanceOf[String],
+//        collectionInstagram.getOrElse(null).asInstanceOf[String],
+//        collectionWiki.getOrElse(null).asInstanceOf[String],
+//        collectionMediumUsername.getOrElse(null).asInstanceOf[String],
+        count.map(_.toString).getOrElse(null).asInstanceOf[String],
+        numberOfOwners.map(_.toString).getOrElse(null).asInstanceOf[String],
+        floorPrice.map(_.toString).getOrElse(null).asInstanceOf[String],
+        averagePrice.map(_.toString).getOrElse(null).asInstanceOf[String],
+        marketCap.map(_.toString).getOrElse(null).asInstanceOf[String],
+        totalVolume.map(_.toString).getOrElse(null).asInstanceOf[String],
       )
   }
 
@@ -460,24 +466,35 @@ object TilliClasses {
         "assetContractAddress",
         "assetContractType",
         "assetContractName",
-        "assetContractUrl",
-        "assetContractSchema",
+//        "assetContractUrl",
+//        "assetContractSchema",
         "tokenId",
         "collectionName",
         "collectionOpenSeaSlug",
         "collectionUrl",
-        "collectionDiscord",
-        "collectionTelegram",
-        "collectionTwitterUsername",
-        "collectionInstagram",
-        "collectionWiki",
-        "collectionMediumUsername",
+//        "collectionDiscord",
+//        "collectionTelegram",
+//        "collectionTwitterUsername",
+//        "collectionInstagram",
+//        "collectionWiki",
+//        "collectionMediumUsername",
         "count",
         "numberOfOwners",
         "floorPrice",
         "averagePrice",
         "marketCap",
+        "totalVolume"
       )
   }
+
+  case class NftMarketData(
+    assetContractAddress: Option[String] = None,
+    collectionOpenSeaSlug: Option[String] = None,
+    numberOfOwners: Option[Int] = None,
+    floorPrice: Option[Double] = None,
+    averagePrice: Option[Double] = None,
+    marketCap: Option[Double] = None,
+    totalVolume: Option[Double] = None,
+  )
 
 }

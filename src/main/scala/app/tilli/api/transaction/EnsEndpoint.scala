@@ -20,6 +20,6 @@ object EnsEndpoint extends TilliCodecs with TilliSchema {
   def service: HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(endpoint.serverLogic(function))
 
   def function(address: String): IO[Either[ErrorResponse, EnsResolutionResponse]] =
-    Calls.ensResolution(address)
+    Calls.ensResolution(address).asInstanceOf[IO[Either[ErrorResponse, EnsResolutionResponse]]]
 
 }

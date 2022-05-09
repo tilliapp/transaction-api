@@ -25,7 +25,7 @@ object TwitterHandleEndpoint extends TilliCodecs with TilliSchema {
   def function(q: String)(implicit
     httpClient: Client[IO],
   ): IO[Either[ErrorResponse, TwitterResponses]] =
-    Calls.twitterHandle(q)
+    Calls.twitterHandle(q).asInstanceOf[IO[Either[ErrorResponse, TwitterResponses]]]
 
 
 }
