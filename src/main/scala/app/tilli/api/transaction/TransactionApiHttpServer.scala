@@ -2,6 +2,7 @@ package app.tilli.api.transaction
 
 import cats.effect.{ExitCode, IO}
 import cats.syntax.all._
+import mongo4cats.client.MongoClient
 import org.http4s.client.Client
 import org.http4s.implicits._
 import org.http4s.server.Router
@@ -12,7 +13,10 @@ import sttp.tapir.openapi.circe.yaml.RichOpenAPI
 
 object TransactionApiHttpServer {
 
-  def apply(implicit httpClient: Client[IO]): IO[ExitCode] = {
+  def apply(implicit
+    httpClient: Client[IO],
+    mongoDbClient: MongoClient[IO]
+  ): IO[ExitCode] = {
     val port = 8080
     val interface = "0.0.0.0"
 
@@ -27,7 +31,7 @@ object TransactionApiHttpServer {
       ListEndpoint.endpoint,
       EnsEndpoint.endpoint,
       TwitterHandleEndpoint.endpoint,
-      NftAnalysis.endpoint,
+      NftAnalysisEndpoint.endpoint,
     )
 
     val swaggerRoute = new SwaggerHttp4s(
@@ -48,7 +52,7 @@ object TransactionApiHttpServer {
       ListEndpoint.service,
       EnsEndpoint.service,
       TwitterHandleEndpoint.service,
-      NftAnalysis.service,
+      NftAnalysisEndpoint.service,
       swaggerRoute,
     ).reduce((a, b) => a <+> b)
     val router = Router("/va1/" -> routes).orNotFound

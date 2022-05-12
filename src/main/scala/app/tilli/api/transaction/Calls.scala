@@ -654,7 +654,8 @@ object Calls {
   ): IO[Either[ErrorResponseTrait, Unit]] = {
     println(s"Starting $uuid! ($collectionSlug $uuid ${getTimestamp()})")
     //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("flyfrogs-ii8t6qt5t5")))
-    //    val ownerAssets = List.empty
+    //    val ownerAssets = List(NftAssetOwner(None, Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f"), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None))
+    //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("floor-app"), assetContractAddress = Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f")))
     val chain =
     for {
       ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid))
@@ -662,14 +663,12 @@ object Calls {
       marketData <- EitherT(getMarketData(distinctNftSlugs, uuid))
       enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
         .filter(_.floorPrice.exists(_ >= 0.05))
-
       write <- EitherT(writeToFile(enrichedOwnerAssets, uuid, collectionSlug)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
       _ = println(s"Done $uuid! ($uuid ${getTimestamp()})")
     } yield write
     chain
       .leftSemiflatTap(err => IO(s"Error: ${println(err.message)}"))
       .value
-
   }
 
   def enrichNftAssetsWithMarketData(
@@ -686,10 +685,10 @@ object Calls {
             floorPrice = marketData.floorPrice,
             averagePrice = marketData.averagePrice,
             marketCap = marketData.marketCap,
+            totalVolume = marketData.totalVolume,
           )
         ).getOrElse(asset)
     }
-
   }
 
   def getDistinctNftCollections(nftAssetOwners: List[NftAssetOwner]): List[NftMarketData] =
@@ -697,10 +696,11 @@ object Calls {
       NftMarketData(
         assetContractAddress = asset.assetContractAddress,
         collectionOpenSeaSlug = asset.collectionOpenSeaSlug,
-        numberOfOwners = None,
-        floorPrice = None,
-        averagePrice = None,
-        marketCap = None,
+        numberOfOwners = asset.numberOfOwners,
+        floorPrice = asset.floorPrice,
+        averagePrice = asset.averagePrice,
+        marketCap = asset.marketCap,
+        totalVolume = asset.totalVolume,
       )
     ).filter(md => md.assetContractAddress.nonEmpty && md.collectionOpenSeaSlug.nonEmpty)
       .distinctBy(_.assetContractAddress.map(_.toLowerCase()))
@@ -725,8 +725,9 @@ object Calls {
       }.toEither
     }
 
-    private val PATTERN_FORMAT = "yyyy-MM-dd"
-    private val formatter = DateTimeFormatter.ofPattern(PATTERN_FORMAT).withZone(ZoneId.systemDefault());
+  private val PATTERN_FORMAT = "yyyy-MM-dd"
+  private val formatter = DateTimeFormatter.ofPattern(PATTERN_FORMAT).withZone(ZoneId.systemDefault());
+
   def getTimestamp(now: Instant = Instant.now()): String = now.toString
 
   def getOwnerAssets(
@@ -759,7 +760,7 @@ object Calls {
         IO(println(s"getMarketData(${nftCollection.collectionOpenSeaSlug}) ($uuid ${getTimestamp()}) $counter/$total")) *>
           IO {
             counter = counter + 1
-          } *> getMarketData(nftCollection, uuid) <* Temporal[IO].sleep(300.milliseconds)
+          } *> getMarketData(nftCollection) <* Temporal[IO].sleep(300.milliseconds)
       )
       .takeWhile(_.isRight)
       .compile
@@ -769,7 +770,6 @@ object Calls {
 
   def getMarketData(
     nftMarketData: NftMarketData,
-    uuid: UUID,
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponseTrait, NftMarketData]] = {

@@ -1,6 +1,7 @@
 package app.tilli.codec
 
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import java.util.{Base64, UUID}
 import scala.util.Try
 
@@ -430,6 +431,8 @@ object TilliClasses {
     averagePrice: Option[Double],
     marketCap: Option[Double],
     totalVolume: Option[Double],
+    createdAt: Instant = Instant.now,
+    updatedAt: Instant = Instant.now,
   ) {
 
     def toStringList: List[String] =
@@ -495,6 +498,8 @@ object TilliClasses {
     averagePrice: Option[Double] = None,
     marketCap: Option[Double] = None,
     totalVolume: Option[Double] = None,
+    createdAt: Instant = Instant.now,
+    updatedAt: Instant = Instant.now,
   )
 
 }
