@@ -843,7 +843,7 @@ object Calls {
                 .getOption(json)
                 .toList
                 .flatMap(_.flatMap(e => root.owner.address.string.getOption(e)))
-                .filter(s => s != null && s.nonEmpty && s != "0x0000000000000000000000000000000000000000")
+                .filter(s => s != null && s.nonEmpty)
           }.distinctBy(_.toLowerCase)
           Right(allAddresses)
       }
@@ -913,18 +913,18 @@ object Calls {
                   .arr
                   .getOption(json)
                   .toList
-                  .flatMap(_.map(json => extractNftAssetOwnerDetails(json)))
+                  .flatMap(_.map(json => extractNftAssetOwnerDetails(json, owner)))
           }
           Right(allAssets)
       }
   }
 
-  def extractNftAssetOwnerDetails(json: Json): NftAssetOwner = {
+  def extractNftAssetOwnerDetails(json: Json, owner:String): NftAssetOwner = {
 
     import io.circe.optics.JsonPath.root
 
     NftAssetOwner(
-      ownerAddress = root.owner.address.string.getOption(json),
+      ownerAddress = Option(owner),
 
       assetContractAddress = root.assetContract.address.string.getOption(json),
       assetContractType = root.assetContract.assetContractType.string.getOption(json),

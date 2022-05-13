@@ -39,17 +39,27 @@ object NftAnalysis {
     //    val ownerAssets = List(NftAssetOwner(None, Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f"), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None))
     //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("floor-app"), assetContractAddress = Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f")))
     val collectionNameNftAssetOwner = "nft_asset_owner"
+    val collectionnNameMarketData = "nft_market_data"
+    import io.circe.generic.auto._
+    import mongo4cats.circe._
+
     val chain =
-    for {
-      database <- EitherT(mongoClient.getDatabase(mongoDatabaseName).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
-      ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid, collectionNameNftAssetOwner)(httpClient, database))
-      distinctNftSlugs <- EitherT(IO(Right(getDistinctNftCollections(ownerAssets)).asInstanceOf[Either[ErrorResponseTrait, List[NftMarketData]]]))
-      marketData <- EitherT(getMarketData(distinctNftSlugs, uuid))
-      enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
-        .filter(_.floorPrice.exists(_ >= 0.05))
-      write <- EitherT(writeToFile(enrichedOwnerAssets, uuid, collectionSlug)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
-      _ = println(s"Done $uuid! ($uuid ${getTimestamp()})")
-    } yield write
+      for {
+        database <- EitherT(mongoClient.getDatabase(mongoDatabaseName).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+
+        collectionNftAssetOwner <- EitherT(database.getCollectionWithCodec[NftAssetOwner](collectionNameNftAssetOwner).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid, collectionNftAssetOwner)(httpClient))
+
+        distinctNftSlugs <- EitherT(IO(Right(getDistinctNftCollections(ownerAssets)).asInstanceOf[Either[ErrorResponseTrait, List[NftMarketData]]]))
+
+        collectionMarketData <- EitherT(database.getCollectionWithCodec[NftMarketData](collectionnNameMarketData).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        marketData <- EitherT(getMarketData(distinctNftSlugs, uuid, collectionMarketData))
+
+        enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
+          .filter(_.floorPrice.exists(_ >= 0.05))
+        write <- EitherT(writeToFile(enrichedOwnerAssets, uuid, collectionSlug)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        _ = println(s"Done $uuid! ($uuid ${getTimestamp()})")
+      } yield write
     chain
       .leftSemiflatTap(err => IO(s"Error: ${println(err.message)}"))
       .value
@@ -58,22 +68,15 @@ object NftAnalysis {
   def getOwnerAssets(
     collectionSlug: String,
     uuid: UUID,
-    collectionName: String,
+    collectionCache: MongoCollection[IO, NftAssetOwner]
   )(implicit
     client: Client[IO],
-    mongoDatabase: MongoDatabase[IO],
   ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
-    import io.circe.generic.auto._
-    import mongo4cats.circe._
     val chain =
       for {
         owners <- EitherT(Calls.getOwnersOfNftCollection(collectionSlug, uuid))
         _ = println(s"Got owners ($uuid ${getTimestamp()}) ${owners}")
-        collection <- EitherT(mongoDatabase
-          .getCollectionWithCodec[NftAssetOwner](collectionName)
-          .attempt
-        ).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
-        assets <- EitherT(getOwnerNFTAssets(owners, uuid, collection))
+        assets <- EitherT(getOwnerNFTAssets(owners, uuid, collectionCache))
       } yield assets
     chain.value
   }
@@ -90,7 +93,7 @@ object NftAnalysis {
     var counter = 1
     fs2.Stream
       .iterable(owners)
-      .evalMap(owner => (IO(println(s"getOwnerNFTAssetsFromCacheOrExternal($owner) ($uuid ${getTimestamp()}) $counter/$total")) *>
+      .evalMap(owner => (IO(println(s"  getOwnerNFTAssetsFromCacheOrExternal($owner) ($uuid ${getTimestamp()}) $counter/$total")) *>
         IO {
           counter = counter + 1
         } *> getOwnerNFTAssetsFromCacheOrExternal(owner, uuid, collectionCache)))
@@ -111,12 +114,15 @@ object NftAnalysis {
     // CAll getOwnerNFTAssetsFromCache and if empty call endpoint: Calls.getOwnerNFTAssets(owner, uuid)))
     val chain =
       for {
-        ownersFromCache <- EitherT(getOwnerNFTAssetsFromCache(owner,uuid, collectionCache)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        ownersFromCache <- EitherT(getOwnerNFTAssetsFromCache(owner, uuid, collectionCache)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
         owners <- EitherT(
-          if(ownersFromCache.nonEmpty) IO(Right(ownersFromCache).asInstanceOf[Either[ErrorResponseTrait, List[NftAssetOwner]]]) <* IO(println(s"getOwnerNFTAssetsFromCache cache hit: $owner ($uuid ${getTimestamp()})"))
-          else Calls.getOwnerNFTAssets(owner, uuid)  <* IO(println(s"getOwnerNFTAssetsFromCache cache miss: $owner ($uuid ${getTimestamp()})"))
+          if (ownersFromCache.nonEmpty) IO(Right(ownersFromCache).asInstanceOf[Either[ErrorResponseTrait, List[NftAssetOwner]]]) <* IO(println(s"getOwnerNFTAssetsFromCache cache hit: $owner ($uuid ${getTimestamp()})"))
+          else Calls.getOwnerNFTAssets(owner, uuid) <* IO(println(s"  getOwnerNFTAssetsFromCache cache miss: $owner ($uuid ${getTimestamp()})"))
         )
-        _ <- EitherT(insertIntoCache(collectionCache, owners)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        _ <- EitherT(
+          if (ownersFromCache.isEmpty) insertIntoCache(collectionCache, owners)
+          else IO(Right())
+        ).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
       } yield owners
     chain.value
   }
@@ -126,7 +132,10 @@ object NftAnalysis {
     uuid: UUID,
     collectionCache: MongoCollection[IO, NftAssetOwner],
   ): IO[Either[Throwable, List[NftAssetOwner]]] = {
-    collectionCache.find.filter(Filter.eq("ownerAddress", owner))
+    collectionCache.find.filter(
+      Filter.eq("ownerAddress", owner) &&
+        Filter.ne("ownerAddress", "0x0000000000000000000000000000000000000000")
+    )
       .all
       .attempt
       .map(_.map(_.toList))
@@ -159,6 +168,7 @@ object NftAnalysis {
   def getMarketData(
     nftCollections: List[NftMarketData],
     uuid: UUID,
+    collectionCache: MongoCollection[IO, NftMarketData],
   )(implicit
     client: Client[IO],
   ): IO[Either[ErrorResponseTrait, List[NftMarketData]]] = {
@@ -168,16 +178,60 @@ object NftAnalysis {
     fs2.Stream
       .iterable(nftCollections)
       .evalMap(nftCollection =>
-        IO(println(s"getMarketData(${nftCollection.collectionOpenSeaSlug}) ($uuid ${getTimestamp()}) $counter/$total")) *>
+        IO(println(s"getMarketDataFromCacheOrExternal(${nftCollection.collectionOpenSeaSlug.get}) ($uuid ${getTimestamp()}) $counter/$total")) *>
           IO {
             counter = counter + 1
-          } *> Calls.getMarketData(nftCollection) <* Temporal[IO].sleep(300.milliseconds)
+          } *> getMarketDataFromCacheOrExternal(nftCollection, uuid, collectionCache)
       )
       .takeWhile(_.isRight)
       .compile
       .toList
       .map(_.sequence)
   }
+
+  def getMarketDataFromCacheOrExternal(
+    nftMarketData: NftMarketData,
+    uuid: UUID,
+    collectionCache: MongoCollection[IO, NftMarketData],
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponseTrait, NftMarketData]] = {
+    val chain =
+      for {
+        marketDataFromCache <- EitherT(getMarketDataFromCache(nftMarketData, uuid, collectionCache)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        marketData <- EitherT(
+          if (marketDataFromCache.nonEmpty) IO(Right(marketDataFromCache.get).asInstanceOf[Either[ErrorResponseTrait, NftMarketData]]) <* IO(println(s"  getMarketDataFromCache cache hit: ${nftMarketData.collectionOpenSeaSlug} ($uuid ${getTimestamp()})"))
+          else Calls.getMarketData(nftMarketData) <* (IO(println(s"  getMarketDataFromCache cache miss: ${nftMarketData.collectionOpenSeaSlug} ($uuid ${getTimestamp()})")) <* Temporal[IO].sleep(300.milliseconds))
+        )
+        _ <- EitherT(
+          if (marketDataFromCache.isEmpty) insertMarketDataIntoCache(collectionCache, marketData)
+          else IO(Right())
+        ).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+      } yield marketData
+    chain.value
+  }
+
+  def getMarketDataFromCache(
+    nftMarketData: NftMarketData,
+    uuid: UUID,
+    collectionCache: MongoCollection[IO, NftMarketData],
+  ): IO[Either[Throwable, Option[NftMarketData]]] = {
+    collectionCache.find.filter(Filter.eq("assetContractAddress", nftMarketData.assetContractAddress.get))
+      .all
+      .attempt
+      .map(_.map(_.lastOption))
+  }
+
+  def insertMarketDataIntoCache(
+    collectionCache: MongoCollection[IO, NftMarketData],
+    nftMarketData: NftMarketData,
+  ): IO[Either[Throwable, Boolean]] = {
+    collectionCache
+      .insertOne(nftMarketData)
+      .attempt
+      .map(_.map(_.wasAcknowledged()))
+  }
+
 
   def enrichNftAssetsWithMarketData(
     nftAssets: List[NftAssetOwner],
