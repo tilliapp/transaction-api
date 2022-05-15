@@ -646,35 +646,35 @@ object Calls {
       )
   }
 
-  def getNftAnalytics(
-    collectionSlug: String,
-    uuid: UUID,
-  )(implicit
-    client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, Unit]] = {
-    println(s"Starting $uuid! ($collectionSlug $uuid ${getTimestamp()})")
-    //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("flyfrogs-ii8t6qt5t5")))
-    //    val ownerAssets = List(NftAssetOwner(None, Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f"), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None))
-    //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("floor-app"), assetContractAddress = Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f")))
-    val chain =
-    for {
-      ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid))
-      distinctNftSlugs <- EitherT(IO(Right(getDistinctNftCollections(ownerAssets)).asInstanceOf[Either[ErrorResponseTrait, List[NftMarketData]]]))
-      marketData <- EitherT(getMarketData(distinctNftSlugs, uuid))
-      enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
-        .filter(_.floorPrice.exists(_ >= 0.05))
-      write <- EitherT(writeToFile(enrichedOwnerAssets, uuid, collectionSlug)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
-      _ = println(s"Done $uuid! ($uuid ${getTimestamp()})")
-    } yield write
-    chain
-      .leftSemiflatTap(err => IO(s"Error: ${println(err.message)}"))
-      .value
-  }
+  //  def getNftAnalytics(
+  //    collectionSlug: String,
+  //    uuid: UUID,
+  //  )(implicit
+  //    client: Client[IO],
+  //  ): IO[Either[ErrorResponseTrait, Unit]] = {
+  //    println(s"Starting $uuid! ($collectionSlug $uuid ${getTimestamp()})")
+  //    //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("flyfrogs-ii8t6qt5t5")))
+  //    //    val ownerAssets = List(NftAssetOwner(None, Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f"), None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None))
+  //    //    val distinctNftSlugs = List(NftMarketData(collectionOpenSeaSlug = Some("floor-app"), assetContractAddress = Some("0x79FCDEF22feeD20eDDacbB2587640e45491b757f")))
+  //    val chain =
+  //    for {
+  //      ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid))
+  //      distinctNftSlugs <- EitherT(IO(Right(getDistinctNftCollections(ownerAssets)).asInstanceOf[Either[ErrorResponseTrait, List[NftMarketData]]]))
+  //      marketData <- EitherT(getMarketData(distinctNftSlugs, uuid))
+  //      enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
+  //        .filter(_.floorPrice.exists(_ >= 0.05))
+  //      write <- EitherT(writeToFile(enrichedOwnerAssets, uuid, collectionSlug)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+  //      _ = println(s"Done $uuid! ($uuid ${getTimestamp()})")
+  //    } yield write
+  //    chain
+  //      .leftSemiflatTap(err => IO(s"Error: ${println(err.message)}"))
+  //      .value
+  //  }
 
   def enrichNftAssetsWithMarketData(
-    nftAssets: List[NftAssetOwner],
+    nftAssets: List[NftAsset],
     marketData: List[NftMarketData],
-  ): List[NftAssetOwner] = {
+  ): List[NftAsset] = {
     val indexedMarketData = marketData.filter(_.assetContractAddress.nonEmpty).map(r => r.assetContractAddress.get -> r).toMap
     nftAssets.map { asset =>
       asset.assetContractAddress
@@ -691,7 +691,7 @@ object Calls {
     }
   }
 
-  def getDistinctNftCollections(nftAssetOwners: List[NftAssetOwner]): List[NftMarketData] =
+  def getDistinctNftCollections(nftAssetOwners: List[NftAsset]): List[NftMarketData] =
     nftAssetOwners.map(asset =>
       NftMarketData(
         assetContractAddress = asset.assetContractAddress,
@@ -706,7 +706,7 @@ object Calls {
       .distinctBy(_.assetContractAddress.map(_.toLowerCase()))
 
   def writeToFile(
-    nftAssetOwners: List[NftAssetOwner],
+    nftAssetOwners: List[NftAsset],
     uuid: UUID,
     collectionName: String,
   ): IO[Either[Throwable, Unit]] =
@@ -718,7 +718,7 @@ object Calls {
         val f = new File(fileName)
         val writer = CSVWriter.open(f)
         println(s"Starting write to $fileName")
-        writer.writeAll(List(NftAssetOwner.header) ++ nftAssetOwners.map(_.toStringList))
+        writer.writeAll(List(NftAsset.header) ++ nftAssetOwners.map(_.toStringList))
         writer.flush()
         writer.close()
         println(s"Finished write to $fileName")
@@ -730,20 +730,20 @@ object Calls {
 
   def getTimestamp(now: Instant = Instant.now()): String = now.toString
 
-  def getOwnerAssets(
-    collectionSlug: String,
-    uuid: UUID,
-  )(implicit
-    client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
-    val chain =
-      for {
-        owners <- EitherT(getOwnersOfNftCollection(collectionSlug, uuid))
-        _ = println(s"Got owners ($uuid ${getTimestamp()}) ${owners}")
-        assets <- EitherT(getOwnerNFTAssets(owners, uuid))
-      } yield assets
-    chain.value
-  }
+  //  def getOwnerAssets(
+  //    collectionSlug: String,
+  //    uuid: UUID,
+  //  )(implicit
+  //    client: Client[IO],
+  //  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
+  //    val chain =
+  //      for {
+  //        owners <- EitherT(getOwnersOfNftCollection(collectionSlug, uuid))
+  //        _ = println(s"Got owners ($uuid ${getTimestamp()}) ${owners}")
+  //        assets <- EitherT(getOwnerNFTAssets(owners, uuid))
+  //      } yield assets
+  //    chain.value
+  //  }
 
   def getMarketData(
     nftCollections: List[NftMarketData],
@@ -810,7 +810,7 @@ object Calls {
     uuid: UUID,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[String]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
     import cats.implicits._
     // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
     val path = "api/v1/assets"
@@ -836,47 +836,113 @@ object Calls {
         case Left(err) => Left(err)
         case Right(jsonList) =>
           import io.circe.optics.JsonPath.root
-          val allAddresses = jsonList.foldLeft(List.empty[String]) { (acc, json) =>
+          val allAddresses = jsonList.foldLeft(List.empty[NftAsset]) { (acc, json) =>
             acc ++
               root.assets
                 .arr
                 .getOption(json)
                 .toList
-                .flatMap(_.flatMap(e => root.owner.address.string.getOption(e)))
-                .filter(s => s != null && s.nonEmpty)
-          }.distinctBy(_.toLowerCase)
+                .flatMap(_.map(e =>
+                  NftAsset(
+                    ownerAddress = root.owner.address.string.getOption(e),
+                    assetContractType = root.assetContract.assetContractType.string.getOption(e),
+                  )
+                ))
+                .filter(nftAsset => nftAsset.ownerAddress != null && nftAsset.ownerAddress.nonEmpty)
+          }.distinctBy(_.ownerAddress.map(_.toLowerCase))
           Right(allAddresses)
       }
   }
 
-  def getOwnerNFTAssets(
-    owners: List[String],
-    uuid: UUID
+  def getNftCollectionSaleEvents(
+    collectionSlug: String,
+    uuid: UUID,
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftSaleEvent]]] = {
     import cats.implicits._
-    val total = owners.size
-    var counter = 1
-    fs2.Stream
-      .iterable(owners)
-      .evalMap(owner => (IO(println(s"getOwnerNFTAssets($owner) ($uuid ${getTimestamp()}) $counter/$total")) *>
-        IO {
-          counter = counter + 1
-        } *> getOwnerNFTAssets(owner, uuid)))
-      .takeWhile(_.isRight)
-      .compile
-      .toList
+    val path = "api/v1/events"
+    val queryParams = Map(
+      "collection_slug" -> collectionSlug,
+      "limit" -> "200",
+      "only_opensea" -> "false",
+      "event_type" -> "transfer",
+    )
+    SimpleHttpClient
+      .callPaged[Json, Json](
+        host = openseaHost,
+        path = path,
+        pageParamKey = "next",
+        cursorQueryParamKey = "cursor",
+        queryParams = queryParams,
+        conversion = json => json,
+        headers = openseaHeaders,
+        uuid = Some(uuid),
+        sleepMs = 50,
+      )
       .map(_.sequence)
-      .map(_.map(_.flatten))
+      .map {
+        case Left(err) => Left(err)
+        case Right(jsonList) =>
+          import io.circe.optics.JsonPath.root
+          val allAddresses = jsonList.foldLeft(List.empty[NftSaleEvent]) { (acc, json) =>
+            acc ++
+              root
+                .assetEvents
+                .arr
+                .getOption(json)
+                .toList
+                .flatMap(_.map(e =>
+                  NftSaleEvent(
+                    transactionHash = root.transaction.transactionHash.string.getOption(e),
+                    eventType = root.eventType.string.getOption(e),
+                    fromAddress = root.fromAccount.address.string.getOption(e), // fromAccount when transfer
+                    toAddress = root.toAccount.address.string.getOption(e), // toAccount when transfer
+//                    fromAddress = root.seller.address.string.getOption(e), // seller when successful
+//                    toAddress = root.winnerAccount.address.string.getOption(e), // winnerAccount when successful
+                    tokenId = root.asset.tokenId.string.getOption(e),
+                    quantity = root.quantity.string.getOption(e).flatMap(s => Try(s.toInt).toOption),
+                    timestamp = root.eventTimestamp.string.getOption(e)
+                      .map(ts => if(!ts.toLowerCase.endsWith("z")) s"${ts}Z" else ts)
+                      .flatMap(ts => Try(Instant.parse(ts)).toOption),
+                  )
+                ))
+//                .filter(nftAsset => nftAsset.toAddress.exists(_!= null) && nftAsset.toAddress.nonEmpty)
+          }
+          Right(allAddresses)
+      }
   }
+
+//  def getOwnerNFTAssets(
+//    owners: List[String],
+//    uuid: UUID,
+//    sleepMs: DurationInt = 250,
+//  )(implicit
+//    client: Client[IO],
+//  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
+//    import cats.implicits._
+//    val total = owners.size
+//    var counter = 1
+//    fs2.Stream
+//      .iterable(owners)
+//      .evalMap(owner => (IO(println(s"getOwnerNFTAssets($owner) ($uuid ${getTimestamp()}) $counter/$total")) *>
+//        IO {
+//          counter = counter + 1
+//        } *> getOwnerNFTAssets(owner, uuid,sleepMs)))
+//      .takeWhile(_.isRight)
+//      .compile
+//      .toList
+//      .map(_.sequence)
+//      .map(_.map(_.flatten))
+//  }
 
   def getOwnerNFTAssets(
     owner: String,
     uuid: UUID,
+    sleepMs: DurationInt = 250
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
     // https://api.opensea.io/api/v1/assets?collection_slug=philosophicalfoxes&limit=200
     val path = "api/v1/assets"
     val queryParams = Map(
@@ -898,6 +964,7 @@ object Calls {
         conversion = json => json,
         headers = openseaHeaders,
         uuid = Some(uuid),
+        sleepMs,
       )
       .map(_.sequence)
       .map {
@@ -906,7 +973,7 @@ object Calls {
 
           import io.circe.optics.JsonPath.root
 
-          val allAssets = jsonList.foldLeft(List.empty[NftAssetOwner]) {
+          val allAssets = jsonList.foldLeft(List.empty[NftAsset]) {
             (acc, json) =>
               acc ++
                 root.assets
@@ -919,11 +986,11 @@ object Calls {
       }
   }
 
-  def extractNftAssetOwnerDetails(json: Json, owner:String): NftAssetOwner = {
+  def extractNftAssetOwnerDetails(json: Json, owner: String): NftAsset = {
 
     import io.circe.optics.JsonPath.root
 
-    NftAssetOwner(
+    NftAsset(
       ownerAddress = Option(owner),
 
       assetContractAddress = root.assetContract.address.string.getOption(json),

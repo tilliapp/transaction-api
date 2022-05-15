@@ -1,7 +1,7 @@
 package app.tilli.api.transaction
 
 import app.tilli.api.transaction.Calls.{formatter, getMarketData, getTimestamp}
-import app.tilli.codec.TilliClasses.{ErrorResponse, ErrorResponseTrait, NftAssetOwner, NftMarketData}
+import app.tilli.codec.TilliClasses.{ErrorResponse, ErrorResponseTrait, NftAsset, NftMarketData, NftSaleEvent}
 import cats.data.EitherT
 import cats.effect.{IO, Temporal}
 import com.github.tototoshi.csv.CSVWriter
@@ -22,6 +22,8 @@ object NftAnalysis {
 
   private val PATTERN_FORMAT = "yyyy-MM-dd"
   private val formatter = DateTimeFormatter.ofPattern(PATTERN_FORMAT).withZone(ZoneId.systemDefault());
+
+  private val NonFungible: String = "non-fungible"
 
   def getTimestamp(now: Instant = Instant.now()): String = now.toString
 
@@ -47,7 +49,7 @@ object NftAnalysis {
       for {
         database <- EitherT(mongoClient.getDatabase(mongoDatabaseName).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
 
-        collectionNftAssetOwner <- EitherT(database.getCollectionWithCodec[NftAssetOwner](collectionNameNftAssetOwner).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
+        collectionNftAssetOwner <- EitherT(database.getCollectionWithCodec[NftAsset](collectionNameNftAssetOwner).attempt).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
         ownerAssets <- EitherT(getOwnerAssets(collectionSlug, uuid, collectionNftAssetOwner)(httpClient))
 
         distinctNftSlugs <- EitherT(IO(Right(getDistinctNftCollections(ownerAssets)).asInstanceOf[Either[ErrorResponseTrait, List[NftMarketData]]]))
@@ -68,26 +70,118 @@ object NftAnalysis {
   def getOwnerAssets(
     collectionSlug: String,
     uuid: UUID,
-    collectionCache: MongoCollection[IO, NftAssetOwner]
+    collectionCache: MongoCollection[IO, NftAsset]
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
     val chain =
       for {
-        owners <- EitherT(Calls.getOwnersOfNftCollection(collectionSlug, uuid))
+        owners <- EitherT(getOwnersOfNftCollection(collectionSlug, uuid))
+          .map(_.filter(_ != "0xb007d041fcde13439212976b2c798c2279b9642a")) // Opensea consistently returns 500xx
         _ = println(s"Got owners ($uuid ${getTimestamp()}) ${owners}")
         assets <- EitherT(getOwnerNFTAssets(owners, uuid, collectionCache))
       } yield assets
     chain.value
   }
 
+  def getOwnersOfNftCollection(
+    collectionSlug: String,
+    uuid: UUID,
+  )(implicit
+    client: Client[IO],
+  ): IO[Either[ErrorResponseTrait, List[String]]] = {
+
+    // 1. Call events API to get token events for the collection
+    // 2. a. filter all token events and keep only those that have winner_account.user.username not null
+    // 		b. using that list of winner addresses filter the original token events for any events where seller.user.username==winner address
+    //		c. Join those lists on the address.
+    //		d. Sort by timestamp desc to get the most recent transaction for that address
+    // 		e. If the most recent transaction is a sale then the user does not hold the token => drop the user, else keep the user as a holder
+
+    val chain =
+      for {
+        allSales <- EitherT(Calls
+          .getNftCollectionSaleEvents(collectionSlug, uuid)
+          //          .map(_.map(_.filter(se => se.toAddress != se.fromAddress)))
+        )
+        //        _ = println(allSales.mkString("\n"))
+        _ = println("All sales: " + allSales.size)
+        _ = println("-----------------------------------------------------------------")
+        tokens = countTokens(allSales)
+        filteredTokens = tokens
+          .filter(c => !c.ownerAddress.contains("0x68bb9fdd68c692def11f1351c73ee1af798540d4"))
+          .filter(c => c.count.exists(_ > 0))
+          .sortBy(_.count)
+        distinctFiltered = filteredTokens.distinctBy(_.ownerAddress)
+//        _ = println(distinctFiltered.mkString("\n"))
+        _ = println("Full set     = " + tokens.size)
+        _ = println("Having > 0   = " + filteredTokens.size)
+        _ = println("Distinct > 0 = " + distinctFiltered.size)
+
+      } yield distinctFiltered.flatMap(_.ownerAddress).toList
+
+    chain.value
+  }
+
+  def countTokens(sales: List[NftSaleEvent]): Seq[NftAsset] = {
+    def toKey(e: NftSaleEvent): Option[(String, NftSaleEvent)] = e.toAddress.map(a => (s"${a}_${e.tokenId.getOrElse("NO_TOKEN_ID")}", e))
+
+    def fromKey(e: NftSaleEvent): Option[(String, NftSaleEvent)] = e.fromAddress.map(a => (s"${a}_${e.tokenId.getOrElse("NO_TOKEN_ID")}", e))
+
+    sales
+      .sortBy(_.timestamp).reverse
+      .filter(t => t.toAddress != t.fromAddress)
+      .flatMap(e => List(toKey(e), fromKey(e)))
+      .flatten
+      .groupBy(_._1)
+      .map { g =>
+        def isCredit(a: NftSaleEvent) = g._1.startsWith(a.toAddress.getOrElse(""))
+
+        def getSign(isCredit: Boolean): Int = if (isCredit) +1 else -1
+
+        def sign(nse: NftSaleEvent): Int = getSign(isCredit(nse))
+
+        g._2
+          .map(_._2)
+          .map(nse =>
+            NftAsset(
+              tokenId = nse.tokenId,
+              count = nse.quantity.map(_ * sign(nse)),
+              ownerAddress = if (sign(nse) < 0) nse.fromAddress else nse.toAddress,
+              createdAt = nse.timestamp,
+              updatedAt = Some(Instant.now),
+            )
+          )
+          .reduce { (a, b) =>
+            val totalCount = (a.count, b.count) match {
+              case (Some(ac), Some(bc)) => Some(ac + bc)
+              case (Some(_), None) => a.count
+              case (None, Some(_)) => b.count
+              case _ => None
+            }
+            val timestamp = (a.createdAt, b.createdAt) match {
+              case (Some(ac), Some(bc)) => if (ac.isBefore(bc)) b.createdAt else a.createdAt
+              case (Some(_), None) => a.createdAt
+              case (None, Some(_)) => b.createdAt
+              case _ => None
+            }
+            a.copy(
+              count = totalCount,
+              createdAt = timestamp,
+              updatedAt = Some(Instant.now())
+            )
+          }
+      }
+      .toList
+  }
+
   def getOwnerNFTAssets(
     owners: List[String],
     uuid: UUID,
-    collectionCache: MongoCollection[IO, NftAssetOwner]
+    collectionCache: MongoCollection[IO, NftAsset]
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
     import cats.implicits._
     val total = owners.size
     var counter = 1
@@ -107,17 +201,17 @@ object NftAnalysis {
   def getOwnerNFTAssetsFromCacheOrExternal(
     owner: String,
     uuid: UUID,
-    collectionCache: MongoCollection[IO, NftAssetOwner],
+    collectionCache: MongoCollection[IO, NftAsset],
   )(implicit
     client: Client[IO],
-  ): IO[Either[ErrorResponseTrait, List[NftAssetOwner]]] = {
+  ): IO[Either[ErrorResponseTrait, List[NftAsset]]] = {
     // CAll getOwnerNFTAssetsFromCache and if empty call endpoint: Calls.getOwnerNFTAssets(owner, uuid)))
     val chain =
       for {
         ownersFromCache <- EitherT(getOwnerNFTAssetsFromCache(owner, uuid, collectionCache)).leftMap(e => ErrorResponse(e.getMessage).asInstanceOf[ErrorResponseTrait])
         owners <- EitherT(
-          if (ownersFromCache.nonEmpty) IO(Right(ownersFromCache).asInstanceOf[Either[ErrorResponseTrait, List[NftAssetOwner]]]) <* IO(println(s"getOwnerNFTAssetsFromCache cache hit: $owner ($uuid ${getTimestamp()})"))
-          else Calls.getOwnerNFTAssets(owner, uuid) <* IO(println(s"  getOwnerNFTAssetsFromCache cache miss: $owner ($uuid ${getTimestamp()})"))
+          if (ownersFromCache.nonEmpty) IO(Right(ownersFromCache).asInstanceOf[Either[ErrorResponseTrait, List[NftAsset]]]) <* IO(println(s"getOwnerNFTAssetsFromCache cache hit: $owner ($uuid ${getTimestamp()})"))
+          else Calls.getOwnerNFTAssets(owner, uuid, 0) <* IO(println(s"  getOwnerNFTAssetsFromCache cache miss: $owner ($uuid ${getTimestamp()})"))
         )
         _ <- EitherT(
           if (ownersFromCache.isEmpty) insertIntoCache(collectionCache, owners)
@@ -130,8 +224,8 @@ object NftAnalysis {
   def getOwnerNFTAssetsFromCache(
     owner: String,
     uuid: UUID,
-    collectionCache: MongoCollection[IO, NftAssetOwner],
-  ): IO[Either[Throwable, List[NftAssetOwner]]] = {
+    collectionCache: MongoCollection[IO, NftAsset],
+  ): IO[Either[Throwable, List[NftAsset]]] = {
     collectionCache.find.filter(
       Filter.eq("ownerAddress", owner) &&
         Filter.ne("ownerAddress", "0x0000000000000000000000000000000000000000")
@@ -142,8 +236,8 @@ object NftAnalysis {
   }
 
   def insertIntoCache(
-    collectionCache: MongoCollection[IO, NftAssetOwner],
-    nftAssetOwners: List[NftAssetOwner],
+    collectionCache: MongoCollection[IO, NftAsset],
+    nftAssetOwners: List[NftAsset],
   ): IO[Either[Throwable, Boolean]] = {
     collectionCache
       .insertMany(nftAssetOwners)
@@ -151,7 +245,7 @@ object NftAnalysis {
       .map(_.map(_.wasAcknowledged()))
   }
 
-  def getDistinctNftCollections(nftAssetOwners: List[NftAssetOwner]): List[NftMarketData] =
+  def getDistinctNftCollections(nftAssetOwners: List[NftAsset]): List[NftMarketData] =
     nftAssetOwners.map(asset =>
       NftMarketData(
         assetContractAddress = asset.assetContractAddress,
@@ -234,9 +328,9 @@ object NftAnalysis {
 
 
   def enrichNftAssetsWithMarketData(
-    nftAssets: List[NftAssetOwner],
+    nftAssets: List[NftAsset],
     marketData: List[NftMarketData],
-  ): List[NftAssetOwner] = {
+  ): List[NftAsset] = {
     val indexedMarketData = marketData.filter(_.assetContractAddress.nonEmpty).map(r => r.assetContractAddress.get -> r).toMap
     nftAssets.map { asset =>
       asset.assetContractAddress
@@ -254,7 +348,7 @@ object NftAnalysis {
   }
 
   def writeToFile(
-    nftAssetOwners: List[NftAssetOwner],
+    nftAssetOwners: List[NftAsset],
     uuid: UUID,
     collectionName: String,
   ): IO[Either[Throwable, Unit]] =
@@ -266,7 +360,7 @@ object NftAnalysis {
         val f = new File(fileName)
         val writer = CSVWriter.open(f)
         println(s"Starting write to $fileName")
-        writer.writeAll(List(NftAssetOwner.header) ++ nftAssetOwners.map(_.toStringList))
+        writer.writeAll(List(NftAsset.header) ++ nftAssetOwners.map(_.toStringList))
         writer.flush()
         writer.close()
         println(s"Finished write to $fileName")

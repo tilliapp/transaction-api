@@ -105,6 +105,7 @@ object SimpleHttpClient extends Logging {
     conversion: A => B,
     headers: Headers = Headers.empty,
     uuid: Option[UUID] = None,
+    sleepMs: DurationInt = 250
   )(implicit
     client: Client[IO],
     decoder: Decoder[A],
@@ -130,7 +131,7 @@ object SimpleHttpClient extends Logging {
             }
             println(s"Next page=$nextPageOption${uuid.map(u => s"($u ${getTimestamp()})").getOrElse("")}")
             (obj, nextPageOption)
-          } <* Temporal[IO].sleep(250.milliseconds)
+          } <* Temporal[IO].sleep(sleepMs.milliseconds)
       })
     stream
       .takeWhile(r => r.isRight)
