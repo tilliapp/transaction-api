@@ -60,7 +60,7 @@ object NftAnalysis {
         _ = println(s"Finished market data $uuid! ($uuid ${getTimestamp()})")
 
         enrichedOwnerAssets = enrichNftAssetsWithMarketData(ownerAssets, marketData)
-          .filter(_.floorPrice.exists(_ >= 0.05))
+          .filter(r => r.floorPrice.exists(_ >= 0.05) && r.totalVolume.exists(_ > 0.0))
 
         _ = println(s"Finished enriching owner assets $uuid! ($uuid ${getTimestamp()})")
         _ = println(s"Start writing file $uuid! ($uuid ${getTimestamp()})")
