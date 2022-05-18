@@ -1,5 +1,8 @@
 package app.tilli.persistence
 
+import app.tilli.api.transaction.NftAnalysis
+import app.tilli.codec.TilliClasses.{ErrorResponse, ErrorResponseTrait, NftAsset}
+import cats.data.EitherT
 import cats.effect.{Async, IO, IOApp, Resource}
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
@@ -40,24 +43,46 @@ object MongoDbAdapter extends IOApp.Simple {
   //      } yield ()
   //    }
 
+  //  override val run: IO[Unit] = {
+  //    val url = "mongodb://localhost:27017"
+  //    val resource = new MongoDbAdapter[IO](url).resource
+  //    val dbName = "test_docs"
+  //    val collectionName = "docs"
+  //    resource.use { client =>
+  //      for {
+  //        db <- client.getDatabase(dbName)
+  //        _ <- createCollectionWithData(db,collectionName)
+  //        collection <- getCollection(db, collectionName)
+  //        _ <- printCollection(collection)
+  ////        updated <- updateDocument(ObjectId("627baf6963ee185589f1c1ea"), collection)
+  ////        _ <- IO(println(s"Updated: ${updated.nonEmpty}"))
+  ////        _ <- printCollection(collection)
+  //      } yield ()
+  //    }
+  //  }
+  // Guide: https://boristheastronaut.medium.com/scala-mongodb-and-cats-effect-1d6875e973fe
+
   override val run: IO[Unit] = {
+    import io.circe.generic.auto._
+    import mongo4cats.circe._
+
     val url = "mongodb://localhost:27017"
     val resource = new MongoDbAdapter[IO](url).resource
-    val dbName = "test_docs"
-    val collectionName = "docs"
+    val dbName = "tilli"
+    val collectionName = "nft_asset_owner"
+    val owner = "0xc199c8a750ac39747bdcff9456e0170f5cda22e4"
     resource.use { client =>
-      for {
-        db <- client.getDatabase(dbName)
-        _ <- createCollectionWithData(db,collectionName)
-        collection <- getCollection(db, collectionName)
-        _ <- printCollection(collection)
-//        updated <- updateDocument(ObjectId("627baf6963ee185589f1c1ea"), collection)
-//        _ <- IO(println(s"Updated: ${updated.nonEmpty}"))
-//        _ <- printCollection(collection)
-      } yield ()
+      val chain =
+        for {
+          db <- EitherT(client.getDatabase(dbName).attempt)
+          coll <- EitherT(db.getCollectionWithCodec[NftAsset](collectionName).attempt)
+          data <- EitherT(NftAnalysis.getOwnerNFTAssetsFromCache(owner, coll))
+          _ = println(data.mkString("\n"))
+        } yield data
+      chain.value
+      chain.value *> IO()
     }
   }
-  // Guide: https://boristheastronaut.medium.com/scala-mongodb-and-cats-effect-1d6875e973fe
 
   import io.circe.generic.auto._
   import mongo4cats.collection.MongoCollection
@@ -73,7 +98,7 @@ object MongoDbAdapter extends IOApp.Simple {
     updateAt: Instant,
   )
 
-//  implicit lazy val myDocCodec: Codec[MyDoc] = deriveCodec
+  //  implicit lazy val myDocCodec: Codec[MyDoc] = deriveCodec
 
   def createCollectionWithData(
     db: MongoDatabase[IO],
@@ -86,6 +111,7 @@ object MongoDbAdapter extends IOApp.Simple {
       _ <- coll.insertMany(docs)
     } yield ()
   }
+
   def getCollection(
     db: MongoDatabase[IO],
     collectionName: String,
