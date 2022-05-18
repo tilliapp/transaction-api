@@ -261,7 +261,7 @@ object NftAnalysis {
         totalVolume = asset.totalVolume,
       )
     ).filter(md => md.assetContractAddress.nonEmpty && md.collectionOpenSeaSlug.nonEmpty)
-      .distinctBy(_.assetContractAddress.map(_.toLowerCase()))
+      .distinctBy(_.collectionOpenSeaSlug.map(_.toLowerCase()))
 
   def getMarketData(
     nftCollections: List[NftMarketData],
