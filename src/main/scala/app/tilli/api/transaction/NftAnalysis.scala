@@ -1,19 +1,17 @@
 package app.tilli.api.transaction
 
-import app.tilli.api.transaction.Calls.{formatter, getMarketData, getTimestamp}
-import app.tilli.codec.TilliClasses.{ErrorResponse, ErrorResponseTrait, NftAsset, NftMarketData, NftSaleEvent}
+import app.tilli.codec.TilliClasses._
 import cats.data.EitherT
 import cats.effect.{IO, Temporal}
 import com.github.tototoshi.csv.CSVWriter
 import mongo4cats.client.MongoClient
 import mongo4cats.collection.MongoCollection
 import mongo4cats.collection.operations.Filter
-import mongo4cats.database.MongoDatabase
 import org.http4s.client.Client
 
 import java.io.File
-import java.time.{Instant, ZoneId}
 import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneId}
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
@@ -350,6 +348,7 @@ object NftAnalysis {
         .flatMap(slug => indexedMarketData.get(slug))
         .map(marketData =>
           asset.copy(
+            count = marketData.count,
             numberOfOwners = marketData.numberOfOwners,
             floorPrice = marketData.floorPrice,
             averagePrice = marketData.averagePrice,

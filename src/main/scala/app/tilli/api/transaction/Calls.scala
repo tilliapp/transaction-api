@@ -795,6 +795,7 @@ object Calls {
           import io.circe.optics.JsonPath.root
           Right(
             nftMarketData.copy(
+              count = root.stats.count.int.getOption(json),
               numberOfOwners = root.stats.numOwners.int.getOption(json),
               floorPrice = root.stats.floorPrice.double.getOption(json),
               averagePrice = root.stats.averagePrice.double.getOption(json),

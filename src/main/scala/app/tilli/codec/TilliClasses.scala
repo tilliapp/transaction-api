@@ -503,6 +503,7 @@ object TilliClasses {
   case class NftMarketData(
     assetContractAddress: Option[String] = None,
     collectionOpenSeaSlug: Option[String] = None,
+    count: Option[Int] = None,
     numberOfOwners: Option[Int] = None,
     floorPrice: Option[Double] = None,
     averagePrice: Option[Double] = None,
