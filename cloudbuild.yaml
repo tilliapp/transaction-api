@@ -29,7 +29,7 @@ steps:
       - '--memory=512Mi'
       - '--max-instances=5'
       - '--min-instances=0'
-      - '--set-env-vars "ENVIRONMENT=production"'
+      - '--set-env-vars="ENVIRONMENT=production"'
       - '--set-secrets=MONGO_DB_USER=projects/86606559027/secrets/MONGO_DB_USER:latest,MONGO_DB_PASSWORD=projects/86606559027/secrets/MONGO_DB_PASSWORD:latest,MONGO_DB_PROTOCOL=projects/86606559027/secrets/MONGO_DB_PROTOCOL:latest,MONGO_DB_HOST=projects/86606559027/secrets/MONGO_DB_HOST:latest'
       #      - '--no-cpu-throttling'
       - '--image=$_GCR_HOSTNAME/$PROJECT_ID/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
