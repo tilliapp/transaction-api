@@ -1,7 +1,6 @@
 package app.tilli.app.config
 
 import app.tilli.api.utils.HttpClientConfig
-import cats.effect.Resource
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
