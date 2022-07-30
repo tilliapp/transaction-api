@@ -1,7 +1,5 @@
 package app.tilli.codec
 
-import cats.instances.DoubleInstances
-
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.{Base64, UUID}
@@ -155,8 +153,8 @@ object TilliClasses {
     image: Option[String],
     coingecko: Option[String],
     ethTransfersCount: Option[Int],
-//    price: EthplorerPrice, // Some times is returned as "false" by ethplorer...
-//    publicTags: List[String],
+    //    price: EthplorerPrice, // Some times is returned as "false" by ethplorer...
+    //    publicTags: List[String],
   )
 
   case class EthplorerToken(
@@ -412,6 +410,7 @@ object TilliClasses {
     provider: Option[UUID],
     sourcedTimestamp: Instant,
   )
+
   case class Header(
     trackingId: UUID,
     eventTimestamp: Instant,
@@ -420,11 +419,13 @@ object TilliClasses {
     dataType: Option[String],
     version: Option[String],
   )
+
   trait TilliEvent[A] {
     def header: Header
 
     def data: A
   }
+
   case class TilliAnalyticsResultEvent(
     header: Header,
     data: AnalyticsResult,
