@@ -42,7 +42,7 @@ case class MongoDbConfig(
     Option(s).filter(s => s != null && s.nonEmpty)
 
   def encodeOpt(s: String): Option[String] =
-    cleanOpt(s).map(s => URLEncoder.encode(s, StandardCharsets.UTF_8))
+    cleanOpt(s).map(s => URLEncoder.encode(s, StandardCharsets.UTF_8.toString))
 }
 
 case class MongoDbConfigParsed(
