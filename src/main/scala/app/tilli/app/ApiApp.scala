@@ -2,7 +2,12 @@ package app.tilli.app
 
 import app.tilli.api.transaction.TransactionApiHttpServer
 import app.tilli.api.utils.{BlazeHttpClient, HttpClientConfig}
-import cats.effect.{Async, ExitCode, IO, IOApp}
+import app.tilli.utils.ApplicationConfig
+import cats.effect.{Async, ExitCode, IO, IOApp, Resource}
+import mongo4cats.client.MongoClient
+import app.tilli.app.config.AppConfig.readerAppConfig
+import app.tilli.app.config.Resources
+import app.tilli.codec.TilliClasses.{AnalyticsResult, TilliAnalyticsResultEvent}
 
 object ApiApp extends IOApp {
 
@@ -10,20 +15,23 @@ object ApiApp extends IOApp {
 
     implicit val async = Async[IO]
 
-    val httpClientSettings = HttpClientConfig(
-      connectTimeoutSecs = 10,
-      requestTimeoutSecs = 10,
-      maxRetryWaitMilliSecs = 10,
-      maxRetries = 10,
+    import app.tilli.codec.MongoDbCodec._
+    val resources = for {
+      appConfig <- ApplicationConfig()
+      httpClient <- BlazeHttpClient.clientWithRetry(appConfig.httpClientConfig)
+      mongoClient <- MongoClient.fromConnectionString(appConfig.mongoDbConfig.url)
+      mongoDatabase <- Resource.eval(mongoClient.getDatabase(appConfig.mongoDbConfig.db))
+      analyticsTransactionCollection <- Resource.eval(mongoDatabase.getCollectionWithCodec[TilliAnalyticsResultEvent](appConfig.mongoDbCollectionAnalyticsTransaction))
+    } yield Resources[IO](
+      appConfig = appConfig,
+      httpClient = httpClient,
+      httpServerPort = appConfig.httpServerPort,
+      analyticsTransactionCollection = analyticsTransactionCollection,
     )
 
-    BlazeHttpClient
-      .clientWithRetry(httpClientSettings)
-      .use(client =>
-        TransactionApiHttpServer(client)
-      )
-
-
+    resources.use{r =>
+      TransactionApiHttpServer(r.httpClient, r.analyticsTransactionCollection)
+    }
   }
 
 }

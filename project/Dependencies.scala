@@ -10,6 +10,15 @@ object Dependencies {
     "ch.qos.logback" % "logback-classic" % "1.2.11",
   )
 
+  val utils = Seq(
+    "ch.qos.logback" % "logback-classic" % "1.2.11",
+
+    "com.typesafe" % "config" % "1.4.2",
+    "com.github.pureconfig" %% "pureconfig" % "0.17.1",
+    "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.17.1",
+    "com.github.pureconfig" %% "pureconfig-enum" % "0.17.1",
+  )
+
   val testDependencies = Seq(
     "org.scalatest" %% "scalatest" % "3.2.11",
   )
@@ -32,5 +41,10 @@ object Dependencies {
 
   val web3Dependencies = Seq(
     "org.web3j" % "core" % "4.9.1"
+  )
+
+  val dataDependencies = Seq(
+    "io.github.kirill5k" %% "mongo4cats-core" % "0.4.8",
+    "io.github.kirill5k" %% "mongo4cats-circe" % "0.4.8",
   )
 }

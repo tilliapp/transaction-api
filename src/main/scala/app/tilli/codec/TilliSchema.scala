@@ -32,6 +32,7 @@ trait TilliSchema {
   implicit lazy val ensResolutionResponseSchema: Schema[EnsResolutionResponse] = Schema.derived
   implicit lazy val twitterResponseSchema: Schema[TwitterResponse] = Schema.derived
   implicit lazy val twitterResponsesSchema: Schema[TwitterResponses] = Schema.derived
+  implicit lazy val filterResponseSchema: Schema[FilterResponse] = Schema.derived
 
 }
 
