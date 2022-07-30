@@ -3,7 +3,8 @@ package app.tilli.codec
 import cats.instances.DoubleInstances
 
 import java.nio.charset.StandardCharsets
-import java.util.Base64
+import java.time.Instant
+import java.util.{Base64, UUID}
 import scala.util.Try
 
 object TilliClasses {
@@ -399,6 +400,46 @@ object TilliClasses {
     imageUrl: Option[String],
     followersCount: Option[Int],
     friendsCount: Option[Int],
+  )
+
+  case class FilterResponse(
+    addresses: Iterable[AnalyticsResult],
+  )
+
+  // Mongodb
+  case class Origin(
+    source: Option[UUID],
+    provider: Option[UUID],
+    sourcedTimestamp: Instant,
+  )
+  case class Header(
+    trackingId: UUID,
+    eventTimestamp: Instant,
+    eventId: UUID,
+    origin: List[Origin],
+    dataType: Option[String],
+    version: Option[String],
+  )
+  trait TilliEvent[A] {
+    def header: Header
+
+    def data: A
+  }
+  case class TilliAnalyticsResultEvent(
+    header: Header,
+    data: AnalyticsResult,
+  ) extends TilliEvent[AnalyticsResult]
+
+  case class AnalyticsResult(
+    address: String,
+    tokenId: String,
+    assetContractAddress: String,
+    assetContractName: Option[String],
+    assetContractType: Option[String],
+    count: Option[Int],
+    duration: Option[Long],
+    originatedFromNullAddress: Boolean,
+    transactions: Option[List[String]],
   )
 
 }

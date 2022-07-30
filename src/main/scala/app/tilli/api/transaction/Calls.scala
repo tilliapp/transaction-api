@@ -24,6 +24,7 @@ object Calls {
   val etherScanApiKey = "2F4I4U42A674STIFNB4M522BRFSP8MHQHA"
 
   val moralisHost = "https://deep-index.moralis.io"
+  val moralisSpeedyNode = "https://speedy-nodes-nyc.moralis.io/78759d66ae649f7b3ea47aaa/eth/mainnet"
   val moralisApiKey = "gyk7fYMB0EOekZxvsLEDyE0Pm46H6py7iwn0x0fr7ortbcMPmUef0GPnHHtc8upP"
   val moralisApiKeyHeader: Header.Raw = Header.Raw(CIString("X-Api-Key"), moralisApiKey)
   val moralisApiKeyHeaderInHeader: Headers = Headers(moralisApiKeyHeader)
@@ -42,7 +43,7 @@ object Calls {
   val alchemyHost = "https://eth-mainnet.alchemyapi.io"
   val alchemyKey = "XLf70gRxS2FpIWTNDGm2-wcrdP5yzgOS"
 
-  val web3ConnectionString = "https://speedy-nodes-nyc.moralis.io/78759d66ae649f7b3ea47aaa/eth/mainnet"
+  val web3ConnectionString = alchemyHost // moralisSpeedyNode
   private lazy val web3Connection = new HttpService(web3ConnectionString)
   private lazy val web3j = Web3j.build(web3Connection)
   private lazy val ensResolver = new EnsResolver(web3j)
