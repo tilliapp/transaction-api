@@ -19,7 +19,11 @@ object ApiApp extends IOApp {
     val resources = for {
       appConfig <- ApplicationConfig()
       httpClient <- BlazeHttpClient.clientWithRetry(appConfig.httpClientConfig)
-      mongoClient <- MongoClient.fromConnectionString(appConfig.mongoDbConfig.url)
+      mongoDbConfig = appConfig.mongoDbConfig.toMongoDbConfig match {
+        case Right(value) => value
+        case Left (err) => throw err
+      }
+      mongoClient <- MongoClient.fromConnectionString(mongoDbConfig.url)
       mongoDatabase <- Resource.eval(mongoClient.getDatabase(appConfig.mongoDbConfig.db))
       analyticsTransactionCollection <- Resource.eval(mongoDatabase.getCollectionWithCodec[TilliAnalyticsResultEvent](appConfig.mongoDbCollectionAnalyticsTransaction))
     } yield Resources[IO](
