@@ -15,18 +15,18 @@ class FilterDbQuery[F[_] : Sync](
   F: MonadThrow[F],
 ) {
 
-  val pageLimit = 20
+  val defaultPageSize = 20
 
   def holdTimeIsLt(
     duration: Duration,
-    limit: Option[Int] = None,
-    page: Option[Int] = None,
+    pageSize: Option[Int] = None,
+    offset: Option[Int] = None,
   ): F[Either[Throwable, Iterable[TilliAnalyticsResultEvent]]] = {
     analyticsTransactionCollection
       .find(Filter.lt("data.duration", duration.toDays))
       .sort(Sort.asc("_id"))
-      .skip(page.getOrElse(0))
-      .limit(limit.getOrElse(pageLimit))
+      .limit(pageSize.getOrElse(defaultPageSize))
+      .skip(offset.getOrElse(0))
       .all
       .attempt
   }
