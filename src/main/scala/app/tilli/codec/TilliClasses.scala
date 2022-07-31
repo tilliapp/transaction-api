@@ -401,7 +401,7 @@ object TilliClasses {
   )
 
   case class FilterResponse(
-    addresses: Iterable[AnalyticsResult],
+    entries: Iterable[AnalyticsResult],
   )
 
   // Mongodb

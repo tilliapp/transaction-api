@@ -48,7 +48,7 @@ object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
         case Left(err) => IO(log.error("An error occurred while querying for holdTimeIsLt", err))
         case Right(_) => IO.unit
       }
-      .map(_.map(a => FilterResponse(addresses = a.map(_.data))))
+      .map(_.map(a => FilterResponse(entries = a.map(_.data))))
       .map(_.leftMap(_ => ErrorResponse("An error occurred while querying")))
 
   }
