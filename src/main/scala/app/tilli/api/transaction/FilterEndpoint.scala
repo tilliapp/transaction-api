@@ -17,12 +17,13 @@ import scala.concurrent.duration.Duration
 
 object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
 
-  val endpoint: Endpoint[Unit, (Int, Option[Int]), ErrorResponse, FilterResponse, Any] =
+  val endpoint: Endpoint[Unit, (Int, Option[Int], Option[Int]), ErrorResponse, FilterResponse, Any] =
     sttp.tapir.endpoint
       .get
       .in("filter") // / path[String] / "balance")
       .in(query[Int]("duration"))
-      .in(query[Option[Int]]("skip"))
+      .in(query[Option[Int]]("pageSize"))
+      .in(query[Option[Int]]("offset"))
       .out(Serializer.jsonBody[FilterResponse])
       .errorOut(Serializer.jsonBody[ErrorResponse])
   //      .name("Address Balance")
@@ -32,7 +33,7 @@ object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
     analyticsTransactionCollection: MongoCollection[IO, TilliAnalyticsResultEvent],
   ): HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(endpoint.serverLogic(function))
 
-  def function(input: (Int, Option[Int]))(implicit
+  def function(input: (Int, Option[Int], Option[Int]))(implicit
     httpClient: Client[IO],
     analyticsTransactionCollection: MongoCollection[IO, TilliAnalyticsResultEvent],
   ): IO[Either[ErrorResponse, FilterResponse]] = {
@@ -43,7 +44,7 @@ object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
 
     val duration = Duration.create(input._1, java.util.concurrent.TimeUnit.DAYS)
     query
-      .holdTimeIsLt(duration, page = input._2)
+      .holdTimeIsLt(duration, pageSize = input._2, offset = input._3)
       .flatTap {
         case Left(err) => IO(log.error("An error occurred while querying for holdTimeIsLt", err))
         case Right(_) => IO.unit
