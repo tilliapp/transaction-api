@@ -5,30 +5,44 @@ import cats.MonadThrow
 import cats.effect.Sync
 import cats.implicits._
 import mongo4cats.collection.MongoCollection
-import mongo4cats.collection.operations.{Filter, Sort}
+import mongo4cats.collection.operations.{Aggregate, Filter, Sort}
 
 import scala.concurrent.duration.Duration
 
 class FilterDbQuery[F[_] : Sync](
   analyticsTransactionCollection: MongoCollection[F, TilliAnalyticsResultEvent],
+  defaultPageSize: Int = 20
 )(implicit
   F: MonadThrow[F],
 ) {
-
-  val defaultPageSize = 20
 
   def holdTimeIsLt(
     duration: Duration,
     pageSize: Option[Int] = None,
     offset: Option[Int] = None,
-  ): F[Either[Throwable, Iterable[TilliAnalyticsResultEvent]]] = {
-    analyticsTransactionCollection
+    returnTotal: Boolean = false,
+  ): F[Either[Throwable, (Option[Long], Iterable[TilliAnalyticsResultEvent])]] = {
+
+    val count: F[Option[Long]] = {
+      if(returnTotal) analyticsTransactionCollection.count(Filter.lt("data.duration", duration.toDays)).map(count => Some(count))
+      else Sync[F].pure(None)
+    }
+
+    val data = analyticsTransactionCollection
       .find(Filter.lt("data.duration", duration.toDays))
       .sort(Sort.asc("_id"))
       .limit(pageSize.getOrElse(defaultPageSize))
       .skip(offset.getOrElse(0))
       .all
-      .attempt
+
+    val chain =
+      for {
+        count <- count
+        data <- data
+      } yield (count, data)
+
+
+    chain.attempt
   }
 
 

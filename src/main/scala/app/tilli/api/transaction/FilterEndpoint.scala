@@ -17,13 +17,14 @@ import scala.concurrent.duration.Duration
 
 object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
 
-  val endpoint: Endpoint[Unit, (Int, Option[Int], Option[Int]), ErrorResponse, FilterResponse, Any] =
+  val endpoint: Endpoint[Unit, (Int, Option[Int], Option[Int], Option[Boolean]), ErrorResponse, FilterResponse, Any] =
     sttp.tapir.endpoint
       .get
       .in("filter") // / path[String] / "balance")
       .in(query[Int]("duration"))
       .in(query[Option[Int]]("pageSize"))
       .in(query[Option[Int]]("offset"))
+      .in(query[Option[Boolean]]("returnTotal"))
       .out(Serializer.jsonBody[FilterResponse])
       .errorOut(Serializer.jsonBody[ErrorResponse])
   //      .name("Address Balance")
@@ -33,23 +34,21 @@ object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
     analyticsTransactionCollection: MongoCollection[IO, TilliAnalyticsResultEvent],
   ): HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(endpoint.serverLogic(function))
 
-  def function(input: (Int, Option[Int], Option[Int]))(implicit
+  def function(input: (Int, Option[Int], Option[Int], Option[Boolean]))(implicit
     httpClient: Client[IO],
     analyticsTransactionCollection: MongoCollection[IO, TilliAnalyticsResultEvent],
   ): IO[Either[ErrorResponse, FilterResponse]] = {
 
-    val query = new FilterDbQuery[IO](
-      analyticsTransactionCollection
-    )
+    val query = new FilterDbQuery[IO](analyticsTransactionCollection)
 
     val duration = Duration.create(input._1, java.util.concurrent.TimeUnit.DAYS)
     query
-      .holdTimeIsLt(duration, pageSize = input._2, offset = input._3)
+      .holdTimeIsLt(duration, pageSize = input._2, offset = input._3, input._4.contains(true))
       .flatTap {
         case Left(err) => IO(log.error("An error occurred while querying for holdTimeIsLt", err))
         case Right(_) => IO.unit
       }
-      .map(_.map(a => FilterResponse(entries = a.map(_.data))))
+      .map(_.map(a => FilterResponse(entries = a._2.map(_.data), total = a._1)))
       .map(_.leftMap(_ => ErrorResponse("An error occurred while querying")))
 
   }
