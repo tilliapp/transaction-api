@@ -402,6 +402,7 @@ object TilliClasses {
 
   case class FilterResponse(
     entries: Iterable[AnalyticsResult],
+    total: Option[Long],
   )
 
   // Mongodb
