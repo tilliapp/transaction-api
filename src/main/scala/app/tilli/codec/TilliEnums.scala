@@ -7,3 +7,11 @@ object AddressType extends Enumeration {
 object TilliLabels extends Enumeration {
   val fraud, verified, safe = Value
 }
+
+object Dimension extends Enumeration {
+  val hold_time, address, asset_contract_address = Value
+}
+
+object Operator extends Enumeration {
+  val lt, gt, eq  = Value
+}

@@ -1,6 +1,7 @@
 package app.tilli.api.transaction
 
 import app.tilli.api.transaction.filter.FilterDbQuery
+import app.tilli.api.transaction.filter.dimension.TilliFilterParser
 import app.tilli.api.utils.ApiSerdes.Serializer
 import app.tilli.codec.TilliClasses._
 import app.tilli.codec._
@@ -13,18 +14,13 @@ import org.http4s.client.Client
 import sttp.tapir._
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
-import scala.concurrent.duration.Duration
-
 object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
 
-  val endpoint: Endpoint[Unit, (Int, Option[Int], Option[Int], Option[Boolean]), ErrorResponse, FilterResponse, Any] =
+  val endpoint: Endpoint[Unit, RequestFilters, ErrorResponse, FilterResponse, Any] =
     sttp.tapir.endpoint
-      .get
+      .post
       .in("filter") // / path[String] / "balance")
-      .in(query[Int]("duration"))
-      .in(query[Option[Int]]("pageSize"))
-      .in(query[Option[Int]]("offset"))
-      .in(query[Option[Boolean]]("returnTotal"))
+      .in(Serializer.jsonBody[RequestFilters])
       .out(Serializer.jsonBody[FilterResponse])
       .errorOut(Serializer.jsonBody[ErrorResponse])
   //      .name("Address Balance")
@@ -34,23 +30,57 @@ object FilterEndpoint extends Logging with TilliCodecs with TilliSchema {
     analyticsTransactionCollection: MongoCollection[IO, TilliAnalyticsResultEvent],
   ): HttpRoutes[IO] = Http4sServerInterpreter[IO]().toRoutes(endpoint.serverLogic(function))
 
-  def function(input: (Int, Option[Int], Option[Int], Option[Boolean]))(implicit
+  def function(input: RequestFilters)(implicit
     httpClient: Client[IO],
     analyticsTransactionCollection: MongoCollection[IO, TilliAnalyticsResultEvent],
   ): IO[Either[ErrorResponse, FilterResponse]] = {
 
-    val query = new FilterDbQuery[IO](analyticsTransactionCollection)
-
-    val duration = Duration.create(input._1, java.util.concurrent.TimeUnit.DAYS)
-    query
-      .holdTimeIsLt(duration, pageSize = input._2, offset = input._3, input._4.contains(true))
-      .flatTap {
-        case Left(err) => IO(log.error("An error occurred while querying for holdTimeIsLt", err))
-        case Right(_) => IO.unit
+    val filterQuery = new FilterDbQuery[IO](analyticsTransactionCollection)
+    IO(TilliFilterParser.parseFilters(input))
+      .flatMap {
+        case Left(err) => IO(Left(err))
+        case Right(filter) =>
+          filterQuery.processQuery(filter, input.pageSize, input.offset, input.returnTotal.contains(true))
       }
       .map(_.map(a => FilterResponse(entries = a._2.map(_.data), total = a._1)))
-      .map(_.leftMap(_ => ErrorResponse("An error occurred while querying")))
-
+      .map(_.leftMap {
+        case ie: IllegalArgumentException => ErrorResponse(ie.getMessage)
+        case _ => ErrorResponse("An error occurred while querying")
+      })
   }
+
+
+  // db.getSiblingDB("tilli").getCollection("analytics_transaction").aggregate([
+  //  {
+  //    $match: {$and: [{"data.duration": {$gt: 0}}, {"data.duration": {$lt: 5}}]}
+  //  },
+  //  {
+  //    $sort: {"data.duration": -1}
+  //  },
+  //  {
+  //    $project: {"address": "$data.address", "duration": "$data.duration", "_id": 0}
+  //  },
+  //  {
+  //    $limit: 10
+  //  }
+  //])
+
+
+  //  def holdTimeAveragePerAddress(): Unit = ???
+  // db.getSiblingDB("tilli").getCollection("analytics_transaction").aggregate([
+  //  {
+  //    $group: {
+  //      _id: {"data᎐address": "$data.address"},
+  //      "avg(data_duration)": {$avg: "$data.duration"}
+  //    }
+  //  },
+  //  {
+  //    $project: {"address": "$_id.data᎐address", "avg": "$avg(data_duration)", "_id": 0}
+  //  },
+  //  {
+  //    $limit: 10
+  //  }
+  //])
+
 
 }

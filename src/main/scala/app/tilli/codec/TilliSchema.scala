@@ -7,6 +7,8 @@ trait TilliSchema {
 
   // Enums
   implicit val addressTypeSchema = Schema.string.validate(Validator.enumeration(AddressType.values.toList))
+  implicit val schemaDimension = Schema.string.validate(Validator.enumeration(Dimension.values.toList))
+  implicit val schemaOperator = Schema.string.validate(Validator.enumeration(Operator.values.toList))
 
   // External Classes
   implicit lazy val etherscanContractSchema: Schema[EtherscanContract] = Schema.derived
@@ -35,6 +37,8 @@ trait TilliSchema {
 
   implicit lazy val schemaAnalyticsResult: Schema[AnalyticsResult] = Schema.derived
   implicit lazy val schemaFilterResponse: Schema[FilterResponse] = Schema.derived
+  implicit lazy val schemaFilter: Schema[SimpleFilter] = Schema.derived
+  implicit lazy val schemaApiFilters: Schema[RequestFilters] = Schema.derived
 
 }
 

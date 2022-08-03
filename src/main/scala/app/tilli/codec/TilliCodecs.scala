@@ -32,6 +32,10 @@ trait TilliCodecs {
   // Enums
   implicit lazy val addressTypeDecoder = decodeEnumeration(AddressType)
   implicit lazy val addressTypeEncoder = encodeEnumeration(AddressType)
+  implicit lazy val decoderDimension = decodeEnumeration(Dimension)
+  implicit lazy val encoderDimension = encodeEnumeration(Dimension)
+  implicit lazy val decoderOperator = decodeEnumeration(Operator)
+  implicit lazy val encoderOperator = encodeEnumeration(Operator)
 
   // Responses
   implicit lazy val errorResponseCodec: Codec[ErrorResponse] = deriveCodec
@@ -56,6 +60,10 @@ trait TilliCodecs {
   implicit lazy val twitterResponsesRawCodec: Codec[TwitterResponsesRaw] = deriveCodec
   implicit lazy val twitterResponseRawCodec: Codec[TwitterResponseRaw] = deriveCodec
   implicit lazy val analyticsResultCodec: Codec[AnalyticsResult] = deriveCodec
+
+  implicit lazy val codecFilter: Codec[SimpleFilter] = deriveCodec
+  implicit lazy val codecApiFilters: Codec[RequestFilters] = deriveCodec
+
 }
 
 object TilliCodecs extends TilliCodecs
