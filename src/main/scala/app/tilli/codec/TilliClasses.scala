@@ -444,4 +444,17 @@ object TilliClasses {
     transactions: Option[List[String]],
   )
 
+  case class SimpleFilter(
+    dimension: Dimension.Value,
+    operator: Operator.Value,
+    value: String,
+  )
+
+  case class RequestFilters(
+    filters: Seq[SimpleFilter],
+    pageSize: Option[Int],
+    offset: Option[Int],
+    returnTotal: Option[Boolean],
+  )
+
 }
