@@ -450,7 +450,7 @@ object TilliClasses {
     value: String,
   )
 
-  case class RequestFilters(
+  case class FiltersRequest(
     filters: Seq[SimpleFilter],
     pageSize: Option[Int],
     offset: Option[Int],

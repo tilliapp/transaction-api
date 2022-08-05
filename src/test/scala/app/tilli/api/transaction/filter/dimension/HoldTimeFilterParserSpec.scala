@@ -1,7 +1,7 @@
 package app.tilli.api.transaction.filter.dimension
 
 import app.tilli.BaseSpec
-import app.tilli.codec.TilliClasses.{RequestFilters, SimpleFilter}
+import app.tilli.codec.TilliClasses.{FiltersRequest, SimpleFilter}
 import app.tilli.codec.{Dimension, Operator}
 import mongo4cats.collection.operations.Filter
 
@@ -10,7 +10,7 @@ class HoldTimeFilterParserSpec extends BaseSpec {
   "HoldTimeFilter" must {
 
     "create filter" in {
-      val filters = RequestFilters(
+      val filters = FiltersRequest(
         filters = Seq(
           SimpleFilter(
             dimension = Dimension.hold_time,

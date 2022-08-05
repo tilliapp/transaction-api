@@ -2,13 +2,13 @@ package app.tilli.api.transaction.filter.dimension
 
 import app.tilli.api.transaction.filter.dimension.TilliFilterParser.filters
 import app.tilli.codec.Dimension
-import app.tilli.codec.TilliClasses.{RequestFilters, SimpleFilter}
+import app.tilli.codec.TilliClasses.{FiltersRequest, SimpleFilter}
 import cats.implicits._
 import mongo4cats.collection.operations.Filter
 
 trait TilliFilterParser {
 
-  def parseFilters(apiRequestFilter: RequestFilters): Either[Throwable, Filter] = {
+  def parseFilters(apiRequestFilter: FiltersRequest): Either[Throwable, Filter] = {
     apiRequestFilter.filters
       .map(f => parseFilter(f))
       .sequence
@@ -29,6 +29,7 @@ object TilliFilterParser extends TilliFilterParser {
     Dimension.hold_time -> HoldTimeFilterParser,
     Dimension.address -> AddressFilterParser,
     Dimension.asset_contract_address -> AssetContractAddressFilterParser,
+    Dimension.minted -> MintedFilterParser,
   )
 
 }

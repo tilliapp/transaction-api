@@ -1,5 +1,6 @@
 package app.tilli.api.transaction
 
+import app.tilli.api.transaction.filter.FilterEndpoint
 import app.tilli.codec.TilliClasses.TilliAnalyticsResultEvent
 import cats.effect.{ExitCode, IO}
 import cats.syntax.all._
