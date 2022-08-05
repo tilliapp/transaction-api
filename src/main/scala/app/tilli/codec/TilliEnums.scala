@@ -9,7 +9,7 @@ object TilliLabels extends Enumeration {
 }
 
 object Dimension extends Enumeration {
-  val hold_time, address, asset_contract_address = Value
+  val hold_time, address, asset_contract_address, minted = Value
 }
 
 object Operator extends Enumeration {
