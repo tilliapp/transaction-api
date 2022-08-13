@@ -22,7 +22,6 @@ trait TilliFilterParser {
       .getOrElse(Left(new IllegalArgumentException(s"The filter configuration is not supported")))
 }
 
-
 object TilliFilterParser extends TilliFilterParser {
 
   val filters: Map[Dimension.Value, FilterParser[_]] = Map(
