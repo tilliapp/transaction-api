@@ -8,10 +8,12 @@ import mongo4cats.collection.MongoCollection
 import org.http4s.client.Client
 import org.http4s.implicits._
 import org.http4s.server.Router
-import org.http4s.server.blaze._
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
 import sttp.tapir.openapi.circe.yaml.RichOpenAPI
 import sttp.tapir.swagger.http4s.SwaggerHttp4s
+
+import java.util.concurrent.{Executors, ThreadPoolExecutor}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 object TransactionApiHttpServer {
 
@@ -58,13 +60,23 @@ object TransactionApiHttpServer {
     ).reduce((a, b) => a <+> b)
     val router = Router("/va1/" -> routes).orNotFound
 
-    BlazeServerBuilder[IO]
+    org.http4s.blaze.server
+      .BlazeServerBuilder[IO]
+      .withExecutionContext(executionContext()) // TODO: May wanna fall back to default when we have enough traffic to keep blaze alive at all times
       .bindHttp(port, interface)
       .withHttpApp(router)
       .serve
       .compile
       .drain
       .as(ExitCode.Success)
+  }
+
+  def executionContext(threads: Int = 10): ExecutionContextExecutor = {
+    val executor = Executors
+      .newFixedThreadPool(threads)
+      .asInstanceOf[ThreadPoolExecutor]
+    executor.allowCoreThreadTimeOut(false)
+    ExecutionContext.fromExecutor(executor)
   }
 
 }
