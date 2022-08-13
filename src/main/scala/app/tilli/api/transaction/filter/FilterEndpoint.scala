@@ -1,6 +1,6 @@
 package app.tilli.api.transaction.filter
 
-import app.tilli.api.transaction.filter.dimension.TilliFilterParser
+import app.tilli.api.transaction.filter.dimension.parser.TilliFilterParser
 import app.tilli.api.utils.ApiSerdes.Serializer
 import app.tilli.codec.TilliClasses.{ErrorResponse, FilterResponse, FiltersRequest, TilliAnalyticsResultEvent}
 import app.tilli.codec.{TilliCodecs, TilliSchema}

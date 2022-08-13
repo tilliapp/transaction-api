@@ -1,4 +1,4 @@
-package app.tilli.api.transaction.filter.dimension
+package app.tilli.api.transaction.filter.dimension.parser
 
 import app.tilli.codec.TilliClasses.SimpleFilter
 import app.tilli.codec.{Dimension, Operator}
