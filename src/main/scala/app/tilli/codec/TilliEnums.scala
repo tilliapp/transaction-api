@@ -9,9 +9,23 @@ object TilliLabels extends Enumeration {
 }
 
 object Dimension extends Enumeration {
-  val hold_time, address, asset_contract_address, minted = Value
+  val
+  address,
+  asset_contract_address,
+  asset_contract_count,
+
+  hold_time_avg,
+  hold_time_max,
+  hold_time_min,
+
+  mint_count,
+  transaction_count,
+  token_count,
+
+  has_minted
+  = Value
 }
 
 object Operator extends Enumeration {
-  val lt, gt, eq  = Value
+  val lt, gt, eq = Value
 }

@@ -36,6 +36,7 @@ trait TilliSchema {
   implicit lazy val twitterResponsesSchema: Schema[TwitterResponses] = Schema.derived
 
   implicit lazy val schemaAnalyticsResult: Schema[AnalyticsResult] = Schema.derived
+  implicit lazy val schemaAnalyticsResultStatsV1: Schema[AnalyticsResultStatsV1] = Schema.derived
   implicit lazy val schemaFilterResponse: Schema[FilterResponse] = Schema.derived
   implicit lazy val schemaFilter: Schema[SimpleFilter] = Schema.derived
   implicit lazy val schemaApiFilters: Schema[FiltersRequest] = Schema.derived

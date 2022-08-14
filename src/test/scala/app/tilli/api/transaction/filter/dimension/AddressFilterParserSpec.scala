@@ -1,6 +1,7 @@
 package app.tilli.api.transaction.filter.dimension
 
 import app.tilli.BaseSpec
+import app.tilli.api.transaction.filter.dimension.parser.{AddressFilterParser, TilliFilterParser}
 import app.tilli.codec.TilliClasses.{FiltersRequest, SimpleFilter}
 import app.tilli.codec.{Dimension, Operator}
 import mongo4cats.collection.operations.Filter

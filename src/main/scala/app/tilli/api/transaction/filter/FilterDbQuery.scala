@@ -1,6 +1,7 @@
 package app.tilli.api.transaction.filter
 
 import app.tilli.codec.TilliClasses.TilliAnalyticsResultEvent
+import app.tilli.logging.Logging
 import cats.MonadThrow
 import cats.effect.Sync
 import cats.implicits._
@@ -12,7 +13,7 @@ class FilterDbQuery[F[_] : Sync](
   defaultPageSize: Int = 20
 )(implicit
   F: MonadThrow[F],
-) {
+) extends Logging {
 
   def processQuery(
     filter: Filter,
@@ -39,6 +40,11 @@ class FilterDbQuery[F[_] : Sync](
         data <- data
       } yield (count, data)
 
-    chain.attempt
+    chain
+      .attempt
+      .flatTap{
+        case Left(err) => Sync[F].delay(log.error(s"An error occurred while executing filter: ${filter.toString}", err))
+        case _ => Sync[F].unit
+      }
   }
 }

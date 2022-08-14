@@ -401,7 +401,7 @@ object TilliClasses {
   )
 
   case class FilterResponse(
-    entries: Iterable[AnalyticsResult],
+    entries: Iterable[AnalyticsResultStatsV1],
     total: Option[Long],
   )
 
@@ -429,8 +429,8 @@ object TilliClasses {
 
   case class TilliAnalyticsResultEvent(
     header: Header,
-    data: AnalyticsResult,
-  ) extends TilliEvent[AnalyticsResult]
+    data: AnalyticsResultStatsV1,
+  ) extends TilliEvent[AnalyticsResultStatsV1]
 
   case class AnalyticsResult(
     address: String,
@@ -442,6 +442,18 @@ object TilliClasses {
     duration: Option[Long],
     originatedFromNullAddress: Boolean,
     transactions: Option[List[String]],
+  )
+
+  case class AnalyticsResultStatsV1(
+    address: String,
+    holdTimeAvg: Option[Double],
+    holdTimeMax: Option[Int],
+    holdTimeMin: Option[Int],
+    mints: Option[Int],
+    transactions:Option[Int],
+    tokens: Option[Int],
+    assetContracts: Iterable[String],
+    assetContractCount: Option[Int],
   )
 
   case class SimpleFilter(
