@@ -11,7 +11,10 @@ trait TilliFilterParser {
     apiRequestFilter.filters
       .map(f => parseFilter(f))
       .sequence
-      .map(filters => filters.reduce((a, b) => a.and(b)))
+      .flatMap(filters =>
+        if (filters.isEmpty) Left(new IllegalArgumentException("Empty filter provided"))
+        else Right(filters.reduce((a, b) => a.and(b)))
+      )
   }
 
   def parseFilter(filter: SimpleFilter): Either[Throwable, Filter] =
