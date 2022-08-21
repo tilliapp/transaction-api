@@ -3,7 +3,7 @@ package app.tilli.api.transaction.filter.dimension.parser
 import app.tilli.codec
 import app.tilli.codec.Dimension
 
-trait HoldTimeMaxFilterParser extends NumberFilterParser {
+trait HoldTimeMaxFilterParser extends DoubleFilterParser {
 
   override val fieldName: String = "data.holdTimeMax"
 
