@@ -1,11 +1,11 @@
 package app.tilli.api.transaction.filter.dimension.parser
 
-import app.tilli.api.transaction.filter.dimension.validator.IntegerValidator
+import app.tilli.api.transaction.filter.dimension.validator.{DoubleValidator, Validator}
 import app.tilli.codec.Operator
 import app.tilli.codec.TilliClasses.SimpleFilter
 import mongo4cats.collection.operations.Filter
 
-trait NumberFilterParser extends FilterParser[Int] with IntegerValidator {
+trait NumberFilterParser[A] extends FilterParser[A] with Validator[A] {
 
   def fieldName: String
 
@@ -17,7 +17,7 @@ trait NumberFilterParser extends FilterParser[Int] with IntegerValidator {
 
   override protected def createFilter(
     simpleFilter: SimpleFilter,
-    validatedValue: Int,
+    validatedValue: A,
   ): Either[Throwable, Filter] = {
     simpleFilter.operator match {
       case Operator.lt => Right(Filter.lt(fieldName, validatedValue))

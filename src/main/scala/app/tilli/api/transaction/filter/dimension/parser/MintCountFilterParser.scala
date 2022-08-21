@@ -3,7 +3,7 @@ package app.tilli.api.transaction.filter.dimension.parser
 import app.tilli.codec
 import app.tilli.codec.Dimension
 
-trait MintCountFilterParser extends NumberFilterParser {
+trait MintCountFilterParser extends IntegerFilterParser {
 
   override val fieldName: String = "data.mints"
 

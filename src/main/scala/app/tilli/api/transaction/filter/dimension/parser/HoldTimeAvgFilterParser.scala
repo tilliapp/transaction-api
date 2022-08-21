@@ -3,7 +3,7 @@ package app.tilli.api.transaction.filter.dimension.parser
 import app.tilli.codec
 import app.tilli.codec.Dimension
 
-trait HoldTimeAvgFilterParser extends NumberFilterParser {
+trait HoldTimeAvgFilterParser extends DoubleFilterParser {
 
   override val fieldName: String = "data.holdTimeAvg"
 
