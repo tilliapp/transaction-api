@@ -16,7 +16,7 @@ class HoldTimeFilterParserSpec extends BaseSpec {
           SimpleFilter(
             dimension = Dimension.hold_time_avg,
             operator = Operator.lt,
-            value = "4",
+            value = "4.0",
           )
         ),
         pageSize = Some(20),
@@ -28,7 +28,7 @@ class HoldTimeFilterParserSpec extends BaseSpec {
       //      println(filters.asJson)
 
       val Right(result) = TilliFilterParser.parseFilters(filters)
-      result.toString mustBe Filter.lt("data.holdTimeAvg", 4).toString
+      result.toString mustBe Filter.lt("data.holdTimeAvg", 4.0).toString
     }
 
   }
