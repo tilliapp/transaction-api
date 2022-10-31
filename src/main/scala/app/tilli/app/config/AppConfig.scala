@@ -31,8 +31,9 @@ case class MongoDbConfig(
         protocol <- cleanOpt(protocol)
         config <- config.flatMap(cleanOpt)
         host <- cleanOpt(host)
+        db <- cleanOpt(db)
       } yield {
-        s"$protocol://$user:$password@$host/$config"
+        s"$protocol://$user:$password@$host/$db$config"
       }
     chain.toRight(new IllegalArgumentException("Could not construct MongoDb config"))
   }
